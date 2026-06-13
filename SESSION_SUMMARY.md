@@ -125,31 +125,46 @@ mexc-trading-bot/
 │       ├── components/Layout.tsx
 │       ├── api/client.ts      # API client
 │       └── types/index.ts     # Shared types
-├── web/main.py                # FastAPI stub with CORS
+├── web/
+│   ├── main.py                # FastAPI app with lifespan, CORS
+│   └── routers.py             # 8 API endpoints (status, signals, positions, trades, performance, settings, override)
+├── db/
+│   ├── models.py              # SQLAlchemy ORM: SignalRecord, PositionRecord, TradeRecord
+│   ├── database.py            # Async engine + session factory
+│   ├── repository.py          # save_signal, save_trade, save_position helpers
+│   └── migrations/            # Alembic (initial migration generated)
 ├── tests/
 │   ├── test_analyst.py        # 9 tests
-│   └── test_trader.py         # 16 tests
+│   ├── test_trader.py         # 16 tests
+│   ├── test_db.py             # 4 tests
+│   └── test_integration.py    # 6 tests
 ├── scripts/
 │   ├── run_analyst.py
 │   └── run_trader.py
+├── requirements.txt           # Locked deps for Docker
 ├── docker-compose.yml
+├── docker-compose.override.yml # Dev hot-reload
+├── .dockerignore
 ├── Dockerfile.analyst
 ├── Dockerfile.trader
 ├── Dockerfile.web
 ├── pyproject.toml
+├── alembic.ini
 └── .gitignore
 ```
 
-### Remaining Phases
-- [ ] **Phase 4**: Dashboard API + DB — FastAPI routes, SQLAlchemy models, Alembic migrations, wire frontend to backend
-- [ ] **Phase 5**: Docker + deploy — polish Docker setup, production config
-- [ ] **Phase 6**: Tests — integration tests, edge cases, coverage
-
-### What to Build Next (Waiting for Instruction)
-- Phase 4: Dashboard + DB
+### All Phases Complete ✅
+- [x] **Phase 1**: Project scaffold, config, shared modules
+- [x] **Phase 2**: Analyst bot — DataFetcher, 5 strategies, SignalAggregator, orchestrator
+- [x] **Phase 3**: Trader bot — PaperEngine, MEXC client, RiskManager, PositionTracker, Notifier
+- [x] **Phase 4**: Dashboard API + DB — FastAPI routes, SQLAlchemy models, Alembic, DB persistence
+- [x] **Phase 5**: Docker polish — fixed Dockerfiles, .dockerignore, dev override, requirements.txt
+- [x] **Phase 6**: Tests — 35 total (integration + edge cases + DB), coverage config
 
 ### Tests
-- **25 total tests** (9 analyst + 16 trader), all passing
+- **35 total tests**, all passing
+- `pytest tests/ -v` to run
+- `pytest --cov=shared,analyst,trader,db,web tests/` for coverage
 - Run with: `pytest tests/ -v`
 
 ### Notes

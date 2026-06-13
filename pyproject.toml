@@ -38,6 +38,9 @@ dev = [
     "pre-commit>=3.7",
 ]
 
+[tool.setuptools.packages.find]
+include = ["shared*", "analyst*", "trader*", "db*", "web*"]
+
 [tool.ruff]
 line-length = 100
 
@@ -47,3 +50,18 @@ select = ["E", "F", "I"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+
+[tool.coverage.run]
+source = ["shared", "analyst", "trader", "db", "web"]
+omit = ["*/migrations/*", "tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+testpaths = ["tests"]
+

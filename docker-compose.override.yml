@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  analyst:
+    volumes:
+      - .:/app
+    command: python scripts/run_analyst.py
+
+  trader:
+    volumes:
+      - .:/app
+    command: python scripts/run_trader.py
+
+  web:
+    volumes:
+      - .:/app
+    command: uvicorn web.main:app --host 0.0.0.0 --port 8000 --reload
