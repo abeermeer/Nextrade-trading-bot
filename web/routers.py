@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,31 +8,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.database import get_session
 from db.models import SignalRecord, PositionRecord, TradeRecord, SignalActionDB, OrderSideDB, OrderStatusDB, BotModeDB
 from shared.models import Signal, Position, BotMode
+from shared.redis_client import create_redis_client
 
 router = APIRouter(prefix="/api")
 
 
+async def _get_redis():
+    rc = create_redis_client()
+    await rc.connect()
+    return rc
+
+
 # --- Status ---
 @router.get("/status")
-async def get_status(session: AsyncSession = Depends(get_session)):
-    from shared.redis_client import create_redis_client
-    rc = create_redis_client()
+async def get_status():
     analyst_alive = False
-    trader_alive = True
     try:
-        last_signal = await session.execute(
-            select(SignalRecord).order_by(desc(SignalRecord.created_at)).limit(1)
-        )
-        signal = last_signal.scalar_one_or_none()
-        if signal and (datetime.now(timezone.utc) - signal.created_at.replace(tzinfo=timezone.utc)).total_seconds() < 300:
-            analyst_alive = True
+        rc = await _get_redis()
+        recent = await rc.lrange("signals:recent", 0, 0)
+        if recent:
+            data = json.loads(recent[0])
+            ts = datetime.fromisoformat(data.get("timestamp", ""))
+            if (datetime.now(timezone.utc) - ts.replace(tzinfo=timezone.utc)).total_seconds() < 300:
+                analyst_alive = True
+        await rc.disconnect()
     except Exception:
         pass
 
     return {
         "mode": BotMode.PAPER.value,
         "analyst_alive": analyst_alive,
-        "trader_alive": trader_alive,
+        "trader_alive": True,
         "uptime_seconds": 0,
     }
 
@@ -40,23 +47,26 @@ async def get_status(session: AsyncSession = Depends(get_session)):
 @router.get("/signals")
 async def get_signals(
     limit: int = Query(50, le=200),
-    session: AsyncSession = Depends(get_session),
 ):
-    result = await session.execute(
-        select(SignalRecord).order_by(desc(SignalRecord.created_at)).limit(limit)
-    )
-    rows = result.scalars().all()
-    return [
-        {
-            "symbol": r.symbol,
-            "action": r.action.value,
-            "confidence": r.confidence,
-            "price": r.price,
-            "timestamp": r.created_at.isoformat(),
-            "strategy_results": r.strategy_results or [],
-        }
-        for r in rows
-    ]
+    try:
+        rc = await _get_redis()
+        raw = await rc.lrange("signals:recent", 0, limit - 1)
+        await rc.disconnect()
+        signals = []
+        for item in raw:
+            data = json.loads(item)
+            signals.append({
+                "symbol": data.get("symbol"),
+                "action": data.get("action"),
+                "confidence": data.get("confidence"),
+                "price": data.get("price"),
+                "timestamp": data.get("timestamp"),
+                "timeframe": data.get("timeframe"),
+                "strategy_results": data.get("strategy_results", []),
+            })
+        return signals
+    except Exception:
+        return []
 
 
 # --- Positions ---

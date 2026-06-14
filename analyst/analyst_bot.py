@@ -1,4 +1,5 @@
 import asyncio
+import json
 import signal
 from datetime import datetime, timezone
 
@@ -130,6 +131,12 @@ class AnalystBot:
             signal_data["timeframe"] = timeframe
 
             await self.redis.publish(self.signal_channel, signal_data)
+            try:
+                await self.redis.set(f"signal:latest:{symbol}:{timeframe}", json.dumps(signal_data), ttl=3600)
+                await self.redis.rpush("signals:recent", json.dumps({**signal_data, "timeframe": timeframe}))
+                await self.redis.ltrim("signals:recent", 0, 199)
+            except Exception as e:
+                logger.error("redis_cache_signal_error", error=str(e))
             try:
                 await save_signal(signal, timeframe)
             except Exception as e:

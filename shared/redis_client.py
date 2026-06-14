@@ -89,3 +89,18 @@ class RedisClient:
             await self._pub.setex(key, ttl, value)
         else:
             await self._pub.set(key, value)
+
+    async def rpush(self, key: str, value: str) -> None:
+        if not self._pub:
+            raise RuntimeError("Redis not connected")
+        await self._pub.rpush(key, value)
+
+    async def lrange(self, key: str, start: int, stop: int) -> list[str]:
+        if not self._pub:
+            raise RuntimeError("Redis not connected")
+        return await self._pub.lrange(key, start, stop)
+
+    async def ltrim(self, key: str, start: int, stop: int) -> None:
+        if not self._pub:
+            raise RuntimeError("Redis not connected")
+        await self._pub.ltrim(key, start, stop)
