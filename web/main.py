@@ -17,7 +17,11 @@ app = FastAPI(title="MEXC Trading Bot Dashboard", version="0.1.0", lifespan=life
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://funny-cobbler-d51629.netlify.app",
+        "https://mexc-trading-bot-production-c215.up.railway.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
