@@ -5,7 +5,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from shared.config_loader import ConfigLoader
-from shared.redis_client import RedisClient
+from shared.redis_client import RedisClient, create_redis_client
 from shared.logger import setup_logging, get_logger
 from analyst.analyst_bot import AnalystBot
 
@@ -26,13 +26,7 @@ async def main():
 
     logger = get_logger(__name__)
 
-    redis_cfg = settings.get("redis", {})
-    redis_client = RedisClient(
-        host=redis_cfg.get("host", "localhost"),
-        port=redis_cfg.get("port", 6379),
-        password=redis_cfg.get("password", ""),
-        db=redis_cfg.get("db", 0),
-    )
+    redis_client = create_redis_client(settings)
 
     bot = AnalystBot(
         config_loader=config_loader,

@@ -1,9 +1,29 @@
+import os
 from typing import Any, Callable, Optional
 import json
+from urllib.parse import urlparse
 import redis.asyncio as aioredis
 from shared.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def create_redis_client(settings: dict | None = None) -> "RedisClient":
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        parsed = urlparse(redis_url)
+        return RedisClient(
+            host=parsed.hostname or "localhost",
+            port=parsed.port or 6379,
+            password=parsed.password or "",
+        )
+    cfg = (settings or {}).get("redis", {})
+    return RedisClient(
+        host=cfg.get("host", "localhost"),
+        port=cfg.get("port", 6379),
+        password=cfg.get("password", ""),
+        db=cfg.get("db", 0),
+    )
 
 
 class RedisClient:

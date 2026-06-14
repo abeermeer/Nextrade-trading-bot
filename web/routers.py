@@ -14,8 +14,8 @@ router = APIRouter(prefix="/api")
 # --- Status ---
 @router.get("/status")
 async def get_status(session: AsyncSession = Depends(get_session)):
-    from shared.redis_client import RedisClient
-    rc = RedisClient()
+    from shared.redis_client import create_redis_client
+    rc = create_redis_client()
     analyst_alive = False
     trader_alive = True
     try:
