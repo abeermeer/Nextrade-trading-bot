@@ -1,16 +1,18 @@
 import asyncio
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from shared.config_loader import ConfigLoader
-from shared.redis_client import RedisClient, create_redis_client
+from shared.redis_client import create_redis_client
 from shared.logger import setup_logging, get_logger
 from analyst.analyst_bot import AnalystBot
 
 
 async def main():
+    print("Starting analyst bot...", flush=True)
+
     config_loader = ConfigLoader()
 
     settings = config_loader.load_settings()
@@ -27,6 +29,7 @@ async def main():
     logger = get_logger(__name__)
 
     redis_client = create_redis_client(settings)
+    print(f"Redis config: host={redis_client._connection_params['host']}, port={redis_client._connection_params['port']}", flush=True)
 
     bot = AnalystBot(
         config_loader=config_loader,
@@ -34,8 +37,13 @@ async def main():
     )
 
     logger.info("analyst_bot_starting")
+    print("Starting bot...", flush=True)
     await bot.start()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        print(f"FATAL: {e}", flush=True)
+        sys.exit(1)
