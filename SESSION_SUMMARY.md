@@ -38,6 +38,7 @@
 | 21 | **Rate limiting per user** | ✅ | Token bucket via Redis, 60 req/min, middleware on all `/api/*` |
 | 22 | **Mobile responsive polish** | ✅ | Nav scroll on mobile, existing `sm:` breakpoints |
 | 23 | **Unit tests for new code** | ✅ | 18 new tests (plan_limits, auth, encryption) — 64 total |
+| 24 | **Repo cleanup & professional README** | ✅ | Full README with arch diagram, API ref, setup guide; MIT LICENSE; .env.example; clean frontend README |
 
 ## Architecture
 
@@ -95,6 +96,9 @@
 - `tests/test_auth.py` — 4 tests for bcrypt + JWT
 - `tests/test_encryption.py` — 5 tests for Fernet
 - `trader/exchange/mexc_client.py` — spot + futures MEXC client
+- `README.md` — project overview, architecture, setup, API ref
+- `LICENSE` — MIT
+- `config/.env.example` — template for required env vars
 
 **Run tests**: `.venv\Scripts\python.exe -m pytest tests/ -v` (64 passing)
 
