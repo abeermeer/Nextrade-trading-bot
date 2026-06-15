@@ -5,6 +5,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from db.repository import save_trade, save_position
+from db.database import async_session_factory
+from db.models import UserRecord, BotModeDB, TradeTypeDB
 from shared.config_loader import ConfigLoader
 from shared.logger import get_logger
 from shared.models import (
@@ -21,8 +23,42 @@ from trader.exchange.mexc_client import MEXCClient
 from trader.risk_manager import RiskManager
 from trader.position_tracker import PositionTracker
 from trader.notifier import Notifier
+from web.user_router import decrypt
 
 logger = get_logger(__name__)
+
+
+class UserSession:
+    def __init__(self, user: UserRecord):
+        self.user_id = user.id
+        self.email = user.email
+        self.mode = BotMode(user.mode.value)
+        self.trade_type = user.trade_type.value
+        self.max_position = user.max_position_usdt
+
+        self.position_tracker = PositionTracker()
+        self.risk_manager = RiskManager(
+            max_position_size_usdt=user.max_position_usdt,
+            max_daily_drawdown_pct=5.0,
+            circuit_breaker_drawdown_pct=10.0,
+            cooldown_seconds=300,
+        )
+        self.paper_engine = PaperEngine()
+        self.exchange: Optional[MEXCClient] = None
+        self._exchange_created = False
+
+        if user.mexc_api_key and user.mexc_api_secret and user.mode == BotModeDB.live:
+            try:
+                api_key = decrypt(user.mexc_api_key)
+                api_secret = decrypt(user.mexc_api_secret)
+                self.exchange = MEXCClient(
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    use_sandbox=False,
+                )
+                self._exchange_created = True
+            except Exception as e:
+                logger.error("exchange_creation_failed", user=user.id, error=str(e))
 
 
 class TraderBot:
@@ -50,15 +86,16 @@ class TraderBot:
         self.stale_signal_timeout = trader_cfg.get("stale_signal_timeout_seconds", 300)
         self.heartbeat_timeout = 60
 
-        self.position_tracker = PositionTracker()
-        self.risk_manager = RiskManager(
-            max_position_size_usdt=trader_cfg.get("max_position_size_usdt", 1000),
-            max_daily_drawdown_pct=trader_cfg.get("max_daily_drawdown_pct", 5.0),
-            circuit_breaker_drawdown_pct=trader_cfg.get("circuit_breaker_drawdown_pct", 10.0),
-            cooldown_seconds=trader_cfg.get("cooldown_seconds", 300),
-        )
-        self.paper_engine = PaperEngine()
-        self.notifier = Notifier(
+        self.sessions: dict[int, UserSession] = {}
+        self._realtime: Optional[RealtimeDataManager] = None
+
+        default_key = self.config_loader.get_env("MEXC_API_KEY", "")
+        default_secret = self.config_loader.get_env("MEXC_API_SECRET", "")
+        if default_key and default_secret:
+            self._realtime = RealtimeDataManager(api_key=default_key, api_secret=default_secret)
+
+    def _get_notifier(self) -> Notifier:
+        return Notifier(
             telegram_token=self.config_loader.get_env("TELEGRAM_BOT_TOKEN"),
             telegram_chat_id=self.config_loader.get_env("TELEGRAM_CHAT_ID"),
             smtp_host=self.config_loader.get_env("SMTP_HOST"),
@@ -68,25 +105,40 @@ class TraderBot:
             email_from=self.config_loader.get_env("EMAIL_FROM"),
             email_to=self.config_loader.get_env("EMAIL_TO"),
         )
-        self.exchange: Optional[MEXCClient] = None
-        if self.mode == BotMode.LIVE:
-            self.exchange = MEXCClient(
-                api_key=self.config_loader.get_env("MEXC_API_KEY", ""),
-                api_secret=self.config_loader.get_env("MEXC_API_SECRET", ""),
-                use_sandbox=exchange_cfg.get("use_sandbox", False),
-            )
 
-        self._ws_started = False
-        self._realtime: Optional[RealtimeDataManager] = None
-        ws_key = self.config_loader.get_env("MEXC_API_KEY", "")
-        ws_secret = self.config_loader.get_env("MEXC_API_SECRET", "")
-        if ws_key and ws_secret:
-            self._realtime = RealtimeDataManager(api_key=ws_key, api_secret=ws_secret)
-            self._realtime.on_price(self._on_price_update)
+    async def _refresh_users(self) -> None:
+        try:
+            async with async_session_factory() as session:
+                from sqlalchemy import select
+                result = await session.execute(
+                    select(UserRecord).where(UserRecord.bot_active == True)
+                )
+                users = result.scalars().all()
+        except Exception as e:
+            logger.error("user_refresh_error", error=str(e))
+            return
+
+        current_ids = set(self.sessions.keys())
+        active_ids = set()
+
+        for u in users:
+            active_ids.add(u.id)
+            if u.id not in self.sessions:
+                self.sessions[u.id] = UserSession(u)
+                logger.info("user_session_created", user=u.id, email=u.email, mode=u.mode.value)
+
+        stale = current_ids - active_ids
+        for uid in stale:
+            del self.sessions[uid]
+            logger.info("user_session_removed", user=uid)
+
+    def _get_session_for_user(self, user_id: int) -> Optional[UserSession]:
+        return self.sessions.get(user_id)
 
     async def _on_price_update(self, symbol: str, price: float) -> None:
-        self.position_tracker.update_price(symbol, price)
-        await self.paper_engine.update_price(symbol, price)
+        for session in self.sessions.values():
+            session.position_tracker.update_price(symbol, price)
+            await session.paper_engine.update_price(symbol, price)
 
     async def start(self) -> None:
         self._running = True
@@ -102,16 +154,14 @@ class TraderBot:
         await self.redis.connect()
         print("DEBUG: Redis connected", flush=True)
 
+        await self._refresh_users()
+
         if self._realtime:
             asyncio.create_task(self._realtime.start(
                 symbols=["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT"],
             ))
 
-        logger.info(
-            "trader_bot_started",
-            mode=self.mode.value,
-            standby=True,
-        )
+        logger.info("trader_bot_started", session_count=len(self.sessions))
 
         monitor_task = asyncio.create_task(self._monitor_loop())
         await self.redis.subscribe(self.signal_channel, self._handle_signal)
@@ -121,36 +171,34 @@ class TraderBot:
         self._running = False
         logger.info("trader_bot_shutting_down")
 
-        if self.mode == BotMode.LIVE:
-            try:
-                await self.exchange.cancel_all_orders()
-                logger.info("all_orders_canceled")
-            except Exception as e:
-                logger.error("cancel_orders_error", error=str(e))
-            if self.position_tracker.position_count() > 0:
-                for pos in self.position_tracker.get_all_open_positions():
+        for uid, session in self.sessions.items():
+            if session.exchange and session._exchange_created:
+                try:
+                    await session.exchange.cancel_all_orders()
+                except Exception as e:
+                    logger.error("cancel_orders_error", user=uid, error=str(e))
+                for pos in session.position_tracker.get_all_open_positions():
                     try:
-                        await self.exchange.create_order(
+                        await session.exchange.create_order(
                             symbol=pos.symbol,
                             side=OrderSide.SELL if pos.side == OrderSide.BUY else OrderSide.BUY,
                             order_type=OrderType.MARKET,
                             quantity=pos.quantity,
                         )
-                        logger.info("position_closed_on_shutdown", symbol=pos.symbol)
                     except Exception as e:
-                        logger.error("close_position_error", symbol=pos.symbol, error=str(e))
-        else:
-            if self.position_tracker.position_count() > 0:
-                logger.info(
-                    "paper_positions_remaining",
-                    count=self.position_tracker.position_count(),
-                )
+                        logger.error("close_position_error", user=uid, symbol=pos.symbol, error=str(e))
+            elif session.position_tracker.position_count() > 0:
+                logger.info("paper_positions_remaining", user=uid, count=session.position_tracker.position_count())
 
         await self.redis.disconnect()
-        if self.exchange:
-            await self.exchange.close()
+
+        for session in self.sessions.values():
+            if session.exchange:
+                await session.exchange.close()
+
         if self._realtime:
             await self._realtime.stop()
+
         logger.info("trader_bot_stopped")
 
     async def _handle_signal(self, data: dict) -> None:
@@ -167,179 +215,150 @@ class TraderBot:
             logger.info("trader_now_active")
 
         symbol = signal.symbol
-        logger.info(
-            "signal_received",
-            symbol=symbol,
-            action=signal.action.value,
-            confidence=round(signal.confidence, 3),
-        )
+        logger.info("signal_received", symbol=symbol, action=signal.action.value, confidence=round(signal.confidence, 3))
 
         if signal.action == SignalAction.HOLD:
             return
 
-        if self.mode == BotMode.PAPER:
+        for uid, session in list(self.sessions.items()):
+            try:
+                await self._execute_for_user(session, signal)
+            except Exception as e:
+                logger.error("user_execution_error", user=uid, error=str(e))
+
+    async def _execute_for_user(self, session: UserSession, signal: Signal) -> None:
+        symbol = signal.symbol
+
+        if session.mode == BotMode.PAPER:
             market_prices: dict[str, float] = {symbol: signal.price}
-            for sym in self.paper_engine.positions:
+            for sym in session.paper_engine.positions:
                 if sym not in market_prices:
-                    pos = self.position_tracker.get_open_position(sym)
+                    pos = session.position_tracker.get_open_position(sym)
                     if pos:
                         market_prices[sym] = pos.entry_price
-            total_equity = self.paper_engine.get_total_equity(market_prices)
-            self.risk_manager.update_balance(total_equity)
+            total_equity = session.paper_engine.get_total_equity(market_prices)
+            session.risk_manager.update_balance(total_equity)
 
-        can_trade, reason = self.risk_manager.can_trade(symbol)
+        can_trade, reason = session.risk_manager.can_trade(symbol)
         if not can_trade:
-            logger.warning("trade_blocked", symbol=symbol, reason=reason)
+            logger.warning("trade_blocked", user=session.user_id, symbol=symbol, reason=reason)
             return
 
-        has_position = self.position_tracker.has_position(symbol)
+        has_position = session.position_tracker.has_position(symbol)
         if has_position and signal.action == SignalAction.BUY:
-            logger.info("already_in_position", symbol=symbol)
+            logger.info("already_in_position", user=session.user_id, symbol=symbol)
             return
         if has_position and signal.action == SignalAction.SELL:
-            await self._close_position(symbol, signal.price, "signal")
+            await self._close_position(session, symbol, signal.price, "signal")
             return
         if not has_position and signal.action == SignalAction.BUY:
-            await self._open_position(symbol, signal.price)
+            await self._open_position(session, symbol, signal.price)
             return
 
-    async def _open_position(self, symbol: str, price: float) -> None:
-        if self.mode == BotMode.PAPER:
+    async def _open_position(self, session: UserSession, symbol: str, price: float) -> None:
+        if session.mode == BotMode.PAPER:
             market_prices: dict[str, float] = {symbol: price}
-            for sym in self.paper_engine.positions:
+            for sym in session.paper_engine.positions:
                 if sym not in market_prices:
-                    pos = self.position_tracker.get_open_position(sym)
+                    pos = session.position_tracker.get_open_position(sym)
                     if pos:
                         market_prices[sym] = pos.entry_price
-            available = self.paper_engine.get_total_equity(market_prices)
+            available = session.paper_engine.get_total_equity(market_prices)
         else:
             available = 10000.0
 
-        quantity = self.risk_manager.calculate_position_size(available, price)
+        quantity = session.risk_manager.calculate_position_size(available, price)
         if quantity <= 0:
-            logger.warning("invalid_quantity", symbol=symbol)
+            logger.warning("invalid_quantity", user=session.user_id, symbol=symbol)
             return
 
-        trader_cfg = self.settings.get("trader", {})
-        sl_pct = trader_cfg.get("default_sl_pct", 2.0)
-        tp_pct = trader_cfg.get("default_tp_pct", 4.0)
+        sl_pct = 1.5
+        tp_pct = 5.0
         stop_loss = price * (1 - sl_pct / 100)
         take_profit = price * (1 + tp_pct / 100)
 
-        if self.mode == BotMode.PAPER:
-            order = await self.paper_engine.create_order(
-                symbol=symbol,
-                side=OrderSide.BUY,
-                order_type=OrderType.MARKET,
-                quantity=quantity,
-                price=price,
-                stop_loss=stop_loss,
-                take_profit=take_profit,
+        if session.mode == BotMode.PAPER:
+            order = await session.paper_engine.create_order(
+                symbol=symbol, side=OrderSide.BUY, order_type=OrderType.MARKET,
+                quantity=quantity, price=price, stop_loss=stop_loss, take_profit=take_profit,
             )
             fill_price = order.average_fill_price
         else:
-            result = await self.exchange.create_order(
-                symbol=symbol,
-                side=OrderSide.BUY,
-                order_type=OrderType.MARKET,
-                quantity=quantity,
-                price=price,
-                stop_loss=stop_loss,
-                take_profit=take_profit,
+            if not session.exchange or not session._exchange_created:
+                logger.warning("no_exchange_for_user", user=session.user_id)
+                return
+            result = await session.exchange.create_order(
+                symbol=symbol, side=OrderSide.BUY, order_type=OrderType.MARKET,
+                quantity=quantity, price=price, stop_loss=stop_loss, take_profit=take_profit,
             )
             fill_price = float(result.get("price", price))
 
-        pos = self.position_tracker.open_position(
-            symbol=symbol,
-            side=OrderSide.BUY,
-            entry_price=fill_price,
-            quantity=quantity,
-            stop_loss=stop_loss,
-            take_profit=take_profit,
+        pos = session.position_tracker.open_position(
+            symbol=symbol, side=OrderSide.BUY, entry_price=fill_price,
+            quantity=quantity, stop_loss=stop_loss, take_profit=take_profit,
         )
-        self.risk_manager.record_trade(symbol)
+        session.risk_manager.record_trade(symbol)
 
         try:
-            await save_position(pos, self.mode.value)
+            await save_position(pos, session.mode.value, user_id=session.user_id)
             await save_trade(
-                symbol=symbol,
-                side="buy",
-                price=fill_price,
-                quantity=quantity,
-                fee=0.001 * fill_price * quantity,
-                mode=self.mode.value,
+                symbol=symbol, side="buy", price=fill_price, quantity=quantity,
+                fee=0.001 * fill_price * quantity, mode=session.mode.value, user_id=session.user_id,
             )
         except Exception as e:
             logger.error("db_save_trade_error", error=str(e))
 
-        await self.notifier.send_trade_notification(
-            symbol=symbol,
-            action="buy",
-            price=fill_price,
-            quantity=quantity,
+        notifier = self._get_notifier()
+        await notifier.send_trade_notification(
+            symbol=symbol, action="buy", price=fill_price, quantity=quantity,
         )
 
-    async def _close_position(self, symbol: str, price: float, reason: str) -> None:
-        pos = self.position_tracker.get_open_position(symbol)
+    async def _close_position(self, session: UserSession, symbol: str, price: float, reason: str) -> None:
+        pos = session.position_tracker.get_open_position(symbol)
         if not pos:
             return
 
-        if self.mode == BotMode.PAPER:
-            await self.paper_engine.create_order(
-                symbol=symbol,
-                side=OrderSide.SELL,
-                order_type=OrderType.MARKET,
-                quantity=pos.quantity,
-                price=price,
+        if session.mode == BotMode.PAPER:
+            await session.paper_engine.create_order(
+                symbol=symbol, side=OrderSide.SELL, order_type=OrderType.MARKET,
+                quantity=pos.quantity, price=price,
             )
             exit_price = price
         else:
-            result = await self.exchange.create_order(
-                symbol=symbol,
-                side=OrderSide.SELL,
-                order_type=OrderType.MARKET,
-                quantity=pos.quantity,
+            if not session.exchange or not session._exchange_created:
+                logger.warning("no_exchange_for_user", user=session.user_id)
+                return
+            result = await session.exchange.create_order(
+                symbol=symbol, side=OrderSide.SELL, order_type=OrderType.MARKET, quantity=pos.quantity,
             )
             exit_price = float(result.get("price", price))
 
-        closed = self.position_tracker.close_position(symbol, exit_price, reason)
+        closed = session.position_tracker.close_position(symbol, exit_price, reason)
         if closed:
-            if self.mode == BotMode.PAPER:
+            if session.mode == BotMode.PAPER:
                 market_prices: dict[str, float] = {}
-                for sym in self.paper_engine.positions:
-                    p = self.position_tracker.get_open_position(sym)
+                for sym in session.paper_engine.positions:
+                    p = session.position_tracker.get_open_position(sym)
                     if p:
                         market_prices[sym] = p.entry_price
-                total_equity = self.paper_engine.get_total_equity(market_prices)
-                self.risk_manager.update_balance(total_equity)
+                total_equity = session.paper_engine.get_total_equity(market_prices)
+                session.risk_manager.update_balance(total_equity)
             else:
-                self.risk_manager.update_balance(10000.0)
+                session.risk_manager.update_balance(10000.0)
 
             try:
                 await save_trade(
-                    symbol=symbol,
-                    side="sell",
-                    price=exit_price,
-                    quantity=pos.quantity,
-                    fee=0.001 * exit_price * pos.quantity,
-                    pnl=closed.realized_pnl,
-                    mode=self.mode.value,
+                    symbol=symbol, side="sell", price=exit_price, quantity=pos.quantity,
+                    fee=0.001 * exit_price * pos.quantity, pnl=closed.realized_pnl,
+                    mode=session.mode.value, user_id=session.user_id,
                 )
             except Exception as e:
                 logger.error("db_save_trade_error", error=str(e))
 
-            await self.notifier.send_trade_notification(
-                symbol=symbol,
-                action="sell",
-                price=exit_price,
-                quantity=pos.quantity,
-                pnl=closed.realized_pnl,
+            notifier = self._get_notifier()
+            await notifier.send_trade_notification(
+                symbol=symbol, action="sell", price=exit_price, quantity=pos.quantity, pnl=closed.realized_pnl,
             )
-
-    async def _handle_heartbeat(self, data: dict) -> None:
-        self._last_heartbeat = datetime.now(timezone.utc)
-        if self._standby:
-            logger.info("analyst_heartbeat_received_entering_active")
 
     async def _monitor_loop(self) -> None:
         async def heartbeat_callback(data: dict) -> None:
@@ -352,6 +371,8 @@ class TraderBot:
             self.redis.subscribe(self.heartbeat_channel, heartbeat_callback)
         )
 
+        refresh_counter = 0
+
         while self._running:
             now = datetime.now(timezone.utc)
             if self._last_heartbeat and (now - self._last_heartbeat).total_seconds() > self.heartbeat_timeout:
@@ -361,17 +382,23 @@ class TraderBot:
                 logger.warning("signals_stale_entering_standby")
                 self._standby = True
 
-            if self.mode == BotMode.PAPER and self.paper_engine.positions:
-                market_prices: dict[str, float] = {}
-                for sym in self.paper_engine.positions:
-                    p = self.position_tracker.get_open_position(sym)
-                    if p:
-                        market_prices[sym] = p.entry_price
-                total_equity = self.paper_engine.get_total_equity(market_prices)
-                self.risk_manager.update_balance(total_equity)
+            refresh_counter += 1
+            if refresh_counter >= 4:
+                await self._refresh_users()
+                refresh_counter = 0
+
+            for session in self.sessions.values():
+                if session.mode == BotMode.PAPER and session.paper_engine.positions:
+                    market_prices: dict[str, float] = {}
+                    for sym in session.paper_engine.positions:
+                        p = session.position_tracker.get_open_position(sym)
+                        if p:
+                            market_prices[sym] = p.entry_price
+                    total_equity = session.paper_engine.get_total_equity(market_prices)
+                    session.risk_manager.update_balance(total_equity)
 
             try:
-                hb = {"status": "alive", "timestamp": now.isoformat(), "mode": self.mode.value}
+                hb = {"status": "alive", "timestamp": now.isoformat(), "mode": "multi"}
                 await self.redis.lpush("heartbeat:trader", json.dumps(hb))
                 await self.redis.ltrim("heartbeat:trader", 0, 9)
             except Exception:

@@ -41,9 +41,11 @@ async def save_trade(
     fee: float = 0.0,
     pnl: Optional[float] = None,
     mode: str = "paper",
+    user_id: Optional[int] = None,
 ) -> None:
     async with async_session_factory() as session:
         record = TradeRecord(
+            user_id=user_id,
             symbol=symbol,
             side=OrderSideDB(side),
             price=price,
@@ -58,9 +60,10 @@ async def save_trade(
         await session.commit()
 
 
-async def save_position(position: Position, mode: str = "paper") -> None:
+async def save_position(position: Position, mode: str = "paper", user_id: Optional[int] = None) -> None:
     async with async_session_factory() as session:
         record = PositionRecord(
+            user_id=user_id,
             symbol=position.symbol,
             side=OrderSideDB(position.side.value),
             entry_price=position.entry_price,
