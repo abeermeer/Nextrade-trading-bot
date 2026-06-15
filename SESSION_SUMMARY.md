@@ -1,191 +1,77 @@
-# Trading Bot System — Session Summary
+# SESSION_SUMMARY — mexc-trading-bot
 
-## Project: MEXC Enterprise Trading Bot
-
-### Goal
-Two-bot system: **Market Analyst** (generates trading signals) + **Trader Bot** (executes on MEXC spot & futures). Fully autonomous, enterprise-grade, paper + live modes.
-
-### Tech Stack
-| Component | Choice | Status |
+## Infrastructure
+| Platform | URL / Project | Status |
 |---|---|---|
-| Language | Python 3.12 | ✅ |
-| Exchange | MEXC via CCXT | ✅ |
-| Realtime Data | ccxt.pro WebSocket | ✅ |
-| Finance Data | yfinance (primary) + CoinGecko (backup) | ✅ |
-| Bot Communication | Redis pub/sub (Railway Redis) | ✅ |
-| Config | YAML + .env | ✅ |
-| Data Models | Pydantic v2 | ✅ |
-| TA Indicators | pandas_ta | ✅ |
-| Logging | structlog with rotation + stdout | ✅ |
-| Dashboard | React + Vite + TypeScript (Netlify) | ✅ |
-| Backend API | FastAPI (Railway) | ✅ |
-| DB | SQLite (dev) / Redis cache (prod) | ✅ |
-| Testing | pytest (46 tests) | ✅ |
-| Deployment | Railway (3 services) | ✅ |
-| Notifications | Telegram + Email | ✅ |
+| GitHub | `abeeruniversity/mexc-trading-bot` | ✅ Pushed |
+| Netlify | `https://funny-cobbler-d51629.netlify.app` | ✅ Deployed |
+| Railway (backend) | `https://mexc-trading-bot-production-c215.up.railway.app` | ✅ Online |
+| Railway (analyst) | `poetic-bravery` | ✅ Online |
+| Railway (trader) | `poetic-bravery` | ✅ Online |
+| Redis | `redis.railway.internal:6379` | ✅ Internal |
 
-### Architecture
-```
-Analyst Bot (Railway) ──redis──► Trader Bot (Railway) ──► PaperEngine
-                                      │
-          Frontend (Netlify) ◄── FastAPI (Railway) ◄──────┘
-```
+## Summary
 
-### Completed Phases
+### ✅ Done
 
-#### Phase 1 — Project Scaffold ✅
-- `pyproject.toml` with all dependencies
-- `config/settings.yaml` — full bot configuration
-- `config/strategies.yaml` — 5 strategies with weights + resolution mode
-- `config/.env.example` — API keys template
-- `shared/models.py` — Pydantic v2 models
-- `shared/config_loader.py` — YAML + .env loader
-- `shared/redis_client.py` — Async Redis pub/sub with heartbeat, list cache
-- `shared/logger.py` — structlog with rotation + stdout for Railway
-- `shared/rate_limiter.py` — Token-bucket rate limiter
-- Dockerfiles + docker-compose.yml
-- `.gitignore` + git init
+**Architecture**
+- Trader bot: PaperEngine, RiskManager (circuit breaker, drawdown, cooldown), PositionTracker, Notifier, ccxt.pro WebSocket
+- Analyst bot: 5 strategies (RSI, MACD, Bollinger, EMA crossover, volume), 3 timeframes, signal aggregation (weighted/strict/majority), dynamic pair selection by volume
+- FastAPI backend: async endpoints (/health, /api/status, /api/signals, /api/positions, /api/performance/metrics), password-protected dashboard
+- React frontend deployed on Netlify
+- Redis pub/sub for real-time signal delivery + heartbeat monitoring
+- 46 tests all passing
 
-#### Phase 2 — Analyst Bot ✅
-- `analyst/data_fetcher.py` — yfinance + CoinGecko fallback with tenacity retry
-- `analyst/indicator_calculator.py` — All TA indicators via pandas_ta
-- `analyst/pair_selector.py` — Dynamic top-N pairs by volume (CCXT), fallback list
-- `analyst/signal_aggregator.py` — Weighted / Strict / Majority modes
-- `analyst/strategy_runner.py` — Runs all 5 enabled strategies
-- `analyst/analyst_bot.py` — Orchestrator: heartbeat loop + signal generation cycle + Redis cache
-- `analyst/strategies/` — RSI, MACD, EMA Trend, Volume Breakout, Bollinger Squeeze
+**Deployment**
+- GitHub → Railway auto-deploy trigger connected
+- Railway: 3 services (backend, analyst, trader) + Redis plugin
+- MEXC API keys verified and set on all 3 Railway services
+- `create_redis_client()` works both locally and on Railway (checks REDIS_URL)
+- All Dockerfiles updated, CORS configured, logs go to stdout
 
-#### Phase 3 — Trader Bot ✅
-- `trader/paper_engine.py` — Simulated fills, virtual P&L, SL/TP triggers, partial fills
-- `trader/exchange/mexc_client.py` — MEXC spot + futures via CCXT with rate limiter
-- `trader/risk_manager.py` — Position sizing, daily drawdown, circuit breaker, cooldowns
-- `trader/position_tracker.py` — Open/closed positions, unrealized/realized P&L
-- `trader/notifier.py` — Telegram + Email notifications
-- `trader/trader_bot.py` — Full orchestrator: subscribe → risk check → paper/live execute → track → notify
+**Most recent fixes (Jun 15)**
+- Circuit breaker now uses **total equity** (cash + open position values) instead of raw cash balance — buying positions no longer false-triggers drawdown limit
+- `init_db()` added to trader entry point — fixes `no such table: positions` SQLite error
+- Total equity synced periodically in `_monitor_loop` so circuit breaker auto-recovers on position gains
 
-#### Phase 4 — Dashboard API + DB ✅
-- FastAPI with 8 API endpoints (reads signals from Redis cache)
-- SQLAlchemy ORM + Alembic migrations (SQLite)
-- DB persistence wired into analyst + trader bots
-- React frontend with 7 views
+### 📋 To Do
 
-#### Phase 5 — Docker Polish ✅
-- Multi-stage Dockerfiles with layer caching
-- docker-compose.yml (redis + analyst + trader + web)
-- docker-compose.override.yml (hot reload for dev)
-- `.dockerignore`
+#### HIGH (blocking or critical)
+| # | Task | Notes |
+|---|---|---|
+| 1 | **Monitor paper trades** | Circuit breaker fix was just deployed (Jun 15 00:04 UTC). Wait for signals + verify trades execute without false circuit breaker triggers |
+| 2 | **Configure Telegram notifications** | `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` env vars are empty — need a real bot token from @BotFather |
+| 3 | **Validate end-to-end flow** | Check: analyst heartbeat → signal published → trader receives → position opens → stop/take-profit works → position closes with P&L |
 
-#### Phase 6 — Realtime Data + Tests ✅
-- `shared/realtime_data.py` — ccxt.pro WebSocket manager
-- Ticker watchers + OHLCV watchers (per-symbol per-timeframe concurrent via gather)
-- Price callbacks update PositionTracker (PnL) and PaperEngine (SL/TP) in real-time
-- 46 tests total, all passing
+#### MEDIUM (nice to have this week)
+| # | Task | Notes |
+|---|---|---|
+| 4 | **PostgreSQL migration** | Replace SQLite so all 3 services share one DB (positions, trades, signals accessible from both analyst & trader & backend) |
+| 5 | **Adjust strategy parameters** | Review paper trading results, tune RSI thresholds, MACD periods, position sizing, etc. |
+| 6 | **Custom Netlify domain** | Replace the funny-cobbler URL with a real domain |
+| 7 | **Dashboard password hardening** | Currently `changeme` / `changeme_secret_key` |
 
-### Project Structure
-```
-mexc-trading-bot/
-├── config/
-│   ├── settings.yaml
-│   ├── strategies.yaml
-│   └── .env.example
-├── shared/
-│   ├── models.py
-│   ├── config_loader.py
-│   ├── redis_client.py
-│   ├── logger.py
-│   ├── rate_limiter.py
-│   └── realtime_data.py
-├── analyst/
-│   ├── data_fetcher.py
-│   ├── indicator_calculator.py
-│   ├── pair_selector.py
-│   ├── signal_aggregator.py
-│   ├── strategy_runner.py
-│   ├── analyst_bot.py
-│   └── strategies/
-│       ├── base.py
-│       ├── rsi_strategy.py
-│       ├── macd_strategy.py
-│       ├── ema_trend_strategy.py
-│       ├── volume_breakout_strategy.py
-│       └── bollinger_squeeze_strategy.py
-├── trader/
-│   ├── paper_engine.py
-│   ├── risk_manager.py
-│   ├── position_tracker.py
-│   ├── notifier.py
-│   ├── trader_bot.py
-│   └── exchange/
-│       └── mexc_client.py
-├── frontend/
-│   └── src/
-│       ├── pages/ (7 views)
-│       ├── components/Layout.tsx
-│       ├── api/client.ts
-│       └── types/index.ts
-├── web/
-│   ├── main.py
-│   └── routers.py
-├── db/
-│   ├── models.py
-│   ├── database.py
-│   ├── repository.py
-│   └── migrations/
-├── tests/
-│   ├── test_analyst.py (9)
-│   ├── test_trader.py (16)
-│   ├── test_db.py (4)
-│   ├── test_integration.py (6)
-│   └── test_realtime.py (11)
-├── scripts/
-│   ├── run_analyst.py
-│   └── run_trader.py
-├── Dockerfile.analyst
-├── Dockerfile.trader
-├── Dockerfile.web
-├── docker-compose.yml
-├── docker-compose.override.yml
-├── .dockerignore
-├── pyproject.toml
-├── requirements.txt
-├── alembic.ini
-└── .gitignore
-```
+#### LOW (future / optional)
+| # | Task | Notes |
+|---|---|---|
+| 8 | **Live trading activation** | Set `bot.mode: live` in settings.yaml and verify MEXC real orders work |
+| 9 | **Add more strategies** | Ichimoku, Supertrend, ADX, etc. |
+| 10 | **Backtesting framework** | Historical data replay + P&L reporting |
+| 11 | **Docker Desktop local dev** | For testing without deploying to Railway every time |
 
-### Tests
-- **46 total tests**, all passing
-- `pytest tests/ -v` to run
-- `pytest --cov=shared,analyst,trader,db,web tests/` for coverage
+### 🔧 Quick References
 
-### Deployment (2026-06-14)
+**Local project**: `C:\Users\brosp\Downloads\mexc-trading-bot`
 
-| Service | Platform | URL |
-|---------|----------|-----|
-| Code | GitHub | https://github.com/abeeruniversity/mexc-trading-bot |
-| Frontend | Netlify | https://funny-cobbler-d51629.netlify.app |
-| Backend API | Railway | https://mexc-trading-bot-production-c215.up.railway.app |
-| Analyst Bot | Railway | Internal service (no public URL) |
-| Trader Bot | Railway | Internal service (no public URL) |
-| Redis | Railway | Internal plugin on `redis.railway.internal:6379` |
+**Key files:**
+- `trader/trader_bot.py` — main bot logic, signal handler, position mgmt
+- `trader/paper_engine.py` — virtual balance, `get_total_equity()`
+- `trader/risk_manager.py` — circuit breaker, drawdown, cooldown
+- `scripts/run_trader.py` — trader entry point
+- `config/settings.yaml` — all bot/trader/analyst/redis config
+- `config/.env` — MEXC API keys + notification secrets
+- `shared/redis_client.py` — Redis pub/sub helper
 
-### Railway Project
-- **Project**: `poetic-bravery`
-- **Services**: `mexc-trading-bot` (FastAPI), `analyst`, `trader`
-- **Databases**: `Redis` (plugin)
-- **All services Online**, signals flowing, analyst alive
+**Run tests**: `cd C:\Users\brosp\Downloads\mexc-trading-bot && .venv\Scripts\python.exe -m pytest tests/ -v`
 
-### Fixes Applied
-- `pandas_ta` pinned to `0.4.71b0` (pre-release version, was failing in Docker build)
-- CORS updated to allow Netlify frontend + Railway domain
-- Dockerfile.web uses `$PORT` env var for Railway compatibility
-- `create_redis_client()` helper supports `REDIS_URL` env var
-- Stdout log handler added for Railway log capture
-- `numpy.bool` serialization fixed in Bollinger strategy + `_json_safe` helper in repository
-- Signals cached in Redis list (`signals:recent`) for cross-service API access
-- `RedisClient` extended with `rpush`, `lrange`, `ltrim` methods
-- Debug `print()` statements added for container startup diagnostics
-
-### What's Next
-- PostgreSQL migration (optional) — for shared DB persistence
-- Custom domain on Netlify (optional)
-- Start bots from standby to active trading mode
+**Railway CLI**: `cd C:\Users\brosp\Downloads\mexc-trading-bot && railway run` (deploys current dir)
