@@ -3,42 +3,52 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=sqlite+aiosqlite:///./trading.db
+      - MEXC_API_KEY=${MEXC_API_KEY}
+      - MEXC_API_SECRET=${MEXC_API_SECRET}
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-admin}
+      - DASHBOARD_SECRET=${DASHBOARD_SECRET:-secret}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
 
   analyst:
     build:
       context: .
       dockerfile: Dockerfile.analyst
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MEXC_API_KEY=${MEXC_API_KEY}
+      - MEXC_API_SECRET=${MEXC_API_SECRET}
     depends_on:
-      - redis
-    env_file:
-      - config/.env
-    volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
+      redis:
+        condition: service_healthy
 
   trader:
     build:
       context: .
       dockerfile: Dockerfile.trader
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MEXC_API_KEY=${MEXC_API_KEY}
+      - MEXC_API_SECRET=${MEXC_API_SECRET}
     depends_on:
-      - redis
-    env_file:
-      - config/.env
-    volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    depends_on:
-      - redis
-    env_file:
-      - config/.env
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
+      redis:
+        condition: service_healthy

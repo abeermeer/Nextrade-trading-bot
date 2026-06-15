@@ -5,6 +5,9 @@ from analyst.strategies import (
     EMATrendStrategy,
     VolumeBreakoutStrategy,
     BollingerSqueezeStrategy,
+    SupertrendStrategy,
+    ADXStrategy,
+    IchimokuStrategy,
 )
 from shared.models import StrategyResult
 from shared.logger import get_logger
@@ -17,6 +20,9 @@ STRATEGY_MAP = {
     "ema_trend": EMATrendStrategy,
     "volume_breakout": VolumeBreakoutStrategy,
     "bollinger_squeeze": BollingerSqueezeStrategy,
+    "supertrend": SupertrendStrategy,
+    "adx": ADXStrategy,
+    "ichimoku": IchimokuStrategy,
 }
 
 

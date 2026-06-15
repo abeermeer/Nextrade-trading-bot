@@ -1,6 +1,6 @@
 bot:
   name: mexc-trading-bot
-  mode: paper  # paper | live
+  mode: live  # paper | live
   version: 0.1.0
 
 analyst:
@@ -27,8 +27,8 @@ trader:
   max_daily_drawdown_pct: 5.0
   circuit_breaker_drawdown_pct: 10.0
   cooldown_seconds: 300
-  default_sl_pct: 2.0
-  default_tp_pct: 4.0
+  default_sl_pct: 1.5
+  default_tp_pct: 5.0
   min_volume_usdt: 10000
   stale_signal_timeout_seconds: 300
 

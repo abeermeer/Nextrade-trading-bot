@@ -19,7 +19,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://funny-cobbler-d51629.netlify.app",
+        "https://mexc-trading-bot.netlify.app",
         "https://mexc-trading-bot-production-c215.up.railway.app",
     ],
     allow_credentials=True,

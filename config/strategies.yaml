@@ -1,15 +1,15 @@
 strategies:
   rsi:
     enabled: true
-    weight: 0.25
+    weight: 0.20
     params:
       period: 14
-      oversold: 30
-      overbought: 70
+      oversold: 35
+      overbought: 65
 
   macd_cross:
     enabled: true
-    weight: 0.25
+    weight: 0.15
     params:
       fast: 12
       slow: 26
@@ -17,29 +17,52 @@ strategies:
 
   ema_trend:
     enabled: true
-    weight: 0.20
+    weight: 0.15
     params:
       short_period: 9
       long_period: 21
 
   volume_breakout:
     enabled: true
-    weight: 0.15
+    weight: 0.10
     params:
       volume_ma_period: 20
-      breakout_multiplier: 2.0
+      breakout_multiplier: 1.5
 
   bollinger_squeeze:
     enabled: true
-    weight: 0.15
+    weight: 0.10
     params:
       period: 20
       std_dev: 2
       squeeze_threshold: 0.05
 
+  supertrend:
+    enabled: true
+    weight: 0.10
+    params:
+      period: 10
+      multiplier: 3.0
+
+  adx:
+    enabled: true
+    weight: 0.10
+    params:
+      period: 14
+      threshold: 25
+
+  ichimoku:
+    enabled: true
+    weight: 0.10
+    params:
+      tenkan_period: 9
+      kijun_period: 26
+      senkou_span_b_period: 52
+      displacement: 26
+
 signal_resolution:
   mode: weighted  # weighted | strict | majority
-  confidence_threshold: 0.6
+  confidence_threshold: 0.5
   min_signals_required: 2
   strict_overrides:
     - daily_drawdown_exceeded
