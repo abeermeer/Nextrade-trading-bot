@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, String, Float, DateTime, Enum, JSON, Integer
+from sqlalchemy import Boolean, Column, String, Float, DateTime, Enum, JSON, Integer
 from sqlalchemy.orm import DeclarativeBase
 import enum
 
@@ -79,3 +79,32 @@ class TradeRecord(Base):
     pnl = Column(Float, nullable=True)
     mode = Column(Enum(BotModeDB), default=BotModeDB.paper)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class TradeTypeDB(str, enum.Enum):
+    spot = "spot"
+    futures = "futures"
+
+
+class PlanTypeDB(str, enum.Enum):
+    basic = "basic"
+    pro = "pro"
+    enterprise = "enterprise"
+
+
+class UserRecord(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    mexc_api_key = Column(String(512), nullable=True)
+    mexc_api_secret = Column(String(512), nullable=True)
+    mode = Column(Enum(BotModeDB), default=BotModeDB.paper)
+    trade_type = Column(Enum(TradeTypeDB), default=TradeTypeDB.spot)
+    plan = Column(Enum(PlanTypeDB), default=PlanTypeDB.basic)
+    bot_active = Column(Boolean, default=False)
+    is_admin = Column(Boolean, default=False)
+    max_position_usdt = Column(Float, default=500.0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
