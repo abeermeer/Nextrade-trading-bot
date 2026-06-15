@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from shared.config_loader import ConfigLoader
 from shared.redis_client import create_redis_client
 from shared.logger import setup_logging, get_logger
+from db.database import init_db
 from analyst.analyst_bot import AnalystBot
 
 
@@ -27,6 +28,12 @@ async def main():
     )
 
     logger = get_logger(__name__)
+
+    try:
+        await init_db()
+        logger.info("database_initialized")
+    except Exception as e:
+        logger.warning("database_init_skipped", error=str(e))
 
     redis_client = create_redis_client(settings)
     print(f"Redis config: host={redis_client._connection_params['host']}, port={redis_client._connection_params['port']}", flush=True)
