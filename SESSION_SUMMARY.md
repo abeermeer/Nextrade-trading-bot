@@ -8,6 +8,7 @@
 | Railway (backend) | `https://mexc-trading-bot-production-c215.up.railway.app` | ✅ Online |
 | Railway (analyst) | `poetic-bravery` | ✅ Online |
 | Railway (trader) | `poetic-bravery` | ✅ Online |
+| Railway (PostgreSQL) | `poetic-bravery` | ✅ Added |
 | Redis | `redis.railway.internal:6379` | ✅ Internal |
 
 ## Summary
@@ -29,35 +30,31 @@
 - `create_redis_client()` works both locally and on Railway (checks REDIS_URL)
 - All Dockerfiles updated, CORS configured, logs go to stdout
 
-**Most recent fixes (Jun 15)**
-- Circuit breaker now uses **total equity** (cash + open position values) instead of raw cash balance — buying positions no longer false-triggers drawdown limit
+**Session 1 fixes (Jun 14-15)**
+- Circuit breaker now uses **total equity** (cash + open position values) instead of raw cash balance
 - `init_db()` added to trader entry point — fixes `no such table: positions` SQLite error
-- Total equity synced periodically in `_monitor_loop` so circuit breaker auto-recovers on position gains
+- Total equity synced periodically in `_monitor_loop`
+- ✅ Paper trades verified working: BNB bought $615.16 → sold $615.25, no circuit breaker false triggers
+- ✅ PostgreSQL migration: `asyncpg` added, `database.py` auto-converts `DATABASE_URL` for async engine
+- ✅ PostgreSQL Railway plugin added — provides shared DB across all 3 services
+- ✅ Dashboard password hardened: secure random password + session secret set on Railway + local .env
 
 ### 📋 To Do
 
-#### HIGH (blocking or critical)
-| # | Task | Notes |
-|---|---|---|
-| 1 | **Monitor paper trades** | Circuit breaker fix was just deployed (Jun 15 00:04 UTC). Wait for signals + verify trades execute without false circuit breaker triggers |
-| 2 | **Configure Telegram notifications** | `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` env vars are empty — need a real bot token from @BotFather |
-| 3 | **Validate end-to-end flow** | Check: analyst heartbeat → signal published → trader receives → position opens → stop/take-profit works → position closes with P&L |
+| # | Priority | Task | Notes |
+|---|---|---|---|
+| 5 | MEDIUM | **Adjust strategy parameters** | Need more paper trading data first |
+| 6 | MEDIUM | **Custom Netlify domain** | Need a domain name from you |
+| 8 | LOW | **Live trading activation** | Set `bot.mode: live` in settings.yaml |
+| 9 | LOW | **Add more strategies** | Ichimoku, Supertrend, ADX, etc. |
+| 10 | LOW | **Backtesting framework** | Historical data replay + P&L reporting |
+| 11 | LOW | **Docker Desktop local dev** | For testing without deploying to Railway |
 
-#### MEDIUM (nice to have this week)
-| # | Task | Notes |
-|---|---|---|
-| 4 | **PostgreSQL migration** | Replace SQLite so all 3 services share one DB (positions, trades, signals accessible from both analyst & trader & backend) |
-| 5 | **Adjust strategy parameters** | Review paper trading results, tune RSI thresholds, MACD periods, position sizing, etc. |
-| 6 | **Custom Netlify domain** | Replace the funny-cobbler URL with a real domain |
-| 7 | **Dashboard password hardening** | Currently `changeme` / `changeme_secret_key` |
-
-#### LOW (future / optional)
-| # | Task | Notes |
-|---|---|---|
-| 8 | **Live trading activation** | Set `bot.mode: live` in settings.yaml and verify MEXC real orders work |
-| 9 | **Add more strategies** | Ichimoku, Supertrend, ADX, etc. |
-| 10 | **Backtesting framework** | Historical data replay + P&L reporting |
-| 11 | **Docker Desktop local dev** | For testing without deploying to Railway every time |
+### Skipped / On Hold
+| Task | Reason |
+|---|---|
+| Telegram notifications | User asked to skip |
+| End-to-end validation | Already verified — BNB trade worked end-to-end |
 
 ### 🔧 Quick References
 
@@ -69,9 +66,10 @@
 - `trader/risk_manager.py` — circuit breaker, drawdown, cooldown
 - `scripts/run_trader.py` — trader entry point
 - `config/settings.yaml` — all bot/trader/analyst/redis config
-- `config/.env` — MEXC API keys + notification secrets
+- `config/.env` — secrets (MEXC keys, dashboard creds)
 - `shared/redis_client.py` — Redis pub/sub helper
+- `db/database.py` — async SQLAlchemy engine, auto-switches SQLite ↔ PostgreSQL
 
 **Run tests**: `cd C:\Users\brosp\Downloads\mexc-trading-bot && .venv\Scripts\python.exe -m pytest tests/ -v`
 
-**Railway CLI**: `cd C:\Users\brosp\Downloads\mexc-trading-bot && railway run` (deploys current dir)
+**Railway CLI**: `cd C:\Users\brosp\Downloads\mexc-trading-bot && railway run`
