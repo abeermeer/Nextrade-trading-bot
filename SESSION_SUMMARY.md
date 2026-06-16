@@ -44,6 +44,13 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 - SIWE for wallet ownership verification (ECDSA for EVM, ed25519 for Solana)
 - No Stripe/PayPal yet — signup free for all plans, wallet ready for future crypto payments
 
+## Critical Bug Found This Session
+- **MEXC API key validation missing**: `PUT /api/user/mexc-keys` encrypts and saves **any string** without checking if it's a real MEXC key. User entered email as API key and phone as secret — system accepted it and bot "started" in live mode.
+- **Root cause**: `MEXCClient.__init__` doesn't validate credentials (just stores them), `UserSession.__init__` sets `_exchange_created = True` without making any API call, and `_execute_for_user` silently returns on `no_exchange_for_user` with no user-facing error.
+- **Impact**: In live mode with fake keys, bot appears running but silently does nothing. Paper mode works fine (no exchange needed). User gets false impression bot is trading.
+- **Fix plan created**: Add `validate_credentials()` to `MEXCClient` (try `fetch_balance()` on spot+futures), validate keys on `PUT /api/user/mexc-keys` before saving, check verification on `POST /api/user/bot` in live mode, show verification status on frontend.
+- **Implementation pending** — to be done next session.
+
 ## Completed This Session
 - **Real social proof from DB**: Added `GET /api/stats` endpoint returning `total_users`, `weekly_users`, `total_trades`, `win_rate` from DB. Landing hero now shows real counts instead of hardcoded "2,400+". CTA section pulls from live data.
 - **Removed fake metrics**: Removed floating "87% Win Rate" card from `HeroIllustration`. All displayed stats now come from actual DB queries.
@@ -87,9 +94,10 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 - All changes pushed to GitHub, deployed to Netlify + Railway. Build clean (zero errors).
 
 ## Remaining
-1. Custom domain (`.netlify.app` subdomain kills trust — #1 priority)
-2. Stripe/PayPal payment integration + checkout flow
-3. Multi-exchange support (Binance, Bybit, etc.)
+1. **MEXC API key validation** — `validate_credentials()` on save, verify before live mode, show status in UI (plan ready, implement tomorrow)
+2. Custom domain (`nextrade.ai` — remove `.netlify.app` subdomain)
+3. Stripe/PayPal payment integration + checkout flow
+4. Multi-exchange support (Binance, Bybit, etc.)
 
 ## Critical Context
 - Backend: `https://mexc-trading-bot-production-c215.up.railway.app/health`
@@ -103,3 +111,26 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 - Docker Desktop not running locally; all via Railway + Netlify
 - `docker-compose.yml` available for local dev
 - Root: `C:\Users\brosp\Downloads\mexc-trading-bot`
+
+## Fix Plan: MEXC API Key Validation (Pending Implementation)
+
+### Changes Needed
+| File | Change |
+|------|--------|
+| `trader/exchange/mexc_client.py` | Add `validate_credentials()` — calls `fetch_balance()` on spot + futures, returns `{spot_ok, futures_ok}` |
+| `db/models.py` | Add `mexc_keys_verified = Column(Boolean, default=False)` to UserRecord |
+| `web/user_router.py` | `update_mexc_keys`: validate before encrypt/save; `get_mexc_keys`: return `keys_verified`; `control_bot`: reject live start if unverified |
+| `trader/trader_bot.py` | `UserSession.__init__`: call `validate_credentials()`, only set `_exchange_created=True` on success |
+| `frontend/src/types/index.ts` | Add `keys_verified`, `spot_ok`, `futures_ok` to `MexcKeys` interface |
+| `frontend/src/pages/Settings.tsx` | Show verifying/verified/failed states, disable save during verification |
+| `frontend/src/api/client.ts` | Update `updateMexcKeys` return type |
+
+### Flow
+1. User enters MEXC keys → clicks Save
+2. Frontend shows "Verifying with MEXC..." + spinner
+3. Backend creates temp MEXCClient → calls `validate_credentials()`
+4. If auth fails → 400 error "Invalid MEXC API keys"
+5. If network error → 503 "Cannot reach MEXC, try again"
+6. If success → encrypt keys, save, set `mexc_keys_verified=True`, return `{keys_verified: true, spot_ok, futures_ok}`
+7. Frontend shows ✅ "Keys Verified (Spot ✓, Futures ✓)" or ❌ error
+8. When user starts bot in live mode → backend checks `mexc_keys_verified` → reject if false
