@@ -169,6 +169,9 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 | POST | `/api/auth/register` | Register new user |
 | POST | `/api/auth/login` | Login, returns JWT |
 | GET | `/api/auth/me` | Current user profile |
+| POST | `/api/auth/wallet-nonce` | Get SIWE message to sign (for wallet auth) |
+| POST | `/api/auth/wallet-login` | Sign in with crypto wallet (EVM/Solana) |
+| POST | `/api/auth/wallet-link` | Link wallet to existing email account |
 
 ### User Endpoints (authenticated)
 | Method | Path | Description |
@@ -184,6 +187,9 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 | PUT | `/api/user/settings` | Update mode, trade type, position limit |
 | POST | `/api/user/bot` | Start/stop bot |
 | GET | `/api/user/bot/status` | Bot configuration status |
+| PUT | `/api/user/wallet` | Save/connect crypto wallet (sig verified) |
+| GET | `/api/user/wallet` | Get connected wallet info |
+| DELETE | `/api/user/wallet` | Disconnect wallet |
 
 ### Admin Endpoints (admin only)
 | Method | Path | Description |
@@ -213,6 +219,7 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 │   ├── redis_client.py   # Redis pub/sub + lists + KV
 │   ├── encryption.py     # Fernet AES-256 encrypt/decrypt
 │   ├── plan_limits.py    # Per-plan limits + enforcement
+│   ├── wallet.py         # SIWE nonce + EVM/Solana signature verification
 │   └── rate_limiter.py   # Token bucket rate limiter
 ├── tests/                # 64 passing tests
 ├── trader/               # Multi-tenant trade executor
@@ -226,7 +233,8 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 │   ├── main.py           # App factory + middleware
 │   ├── auth.py           # bcrypt + JWT utilities
 │   ├── auth_router.py    # Register/login/me + admin seed
-│   ├── user_router.py    # User settings, MEXC keys, bot control
+│   ├── wallet_router.py  # Wallet auth (nonce, login, link)
+│   ├── user_router.py    # User settings, MEXC keys, bot control, wallet
 │   └── routers.py        # Status, signals, positions, trades, logs
 ├── docker-compose.yml    # Local dev setup
 ├── Dockerfile.web         # Backend container

@@ -39,21 +39,25 @@
 | 22 | **Mobile responsive polish** | ✅ | Nav scroll on mobile, existing `sm:` breakpoints |
 | 23 | **Unit tests for new code** | ✅ | 18 new tests (plan_limits, auth, encryption) — 64 total |
 | 24 | **Repo cleanup & professional README** | ✅ | Full README with arch diagram, API ref, setup guide; MIT LICENSE; .env.example; clean frontend README |
+| 25 | **Wallet connection (EVM + Solana)** | ✅ | MetaMask / Phantom connect, SIWE sig verify, wallet-login, wallet-link, save/disconnect |
 
 ## Architecture
 
 ### Frontend (React 19 + Tailwind v4 on Netlify)
 - `Landing.tsx` — Hero + features + 3-tier pricing
 - `Login.tsx` / `Signup.tsx` — Auth with plan selection
-- `Dashboard.tsx` — Bot viz (🧠→⚡→🤖), Start/Stop, Paper/Live, Spot/Futures, P&L, signals table, **equity curve chart**, **live bot logs**
-- `Settings.tsx` — MEXC keys, mode switch, trade type, risk management
-- `Admin.tsx` — User list (admin only)
+- `Dashboard.tsx` — Bot viz (🧠→⚡→🤖), Start/Stop, Paper/Live, Spot/Futures, P&L, signals table, **equity curve chart**, **live bot logs**, **wallet connect**
+- `Settings.tsx` — MEXC keys, mode switch, trade type, risk management, **wallet connect**
+- `Admin.tsx` — User list (admin only, shows wallet info)
 - `Positions.tsx` / `Signals.tsx` / `Trades.tsx` — Dark themed data tables
+- `context/WalletContext.tsx` — Unified EVM + Solana wallet provider (ethers + @solana/web3.js)
+- `components/WalletConnect.tsx` — Connect/disconnect MetaMask / Phantom buttons
 
 ### Backend (FastAPI on Railway)
 - `web/auth.py` — bcrypt + JWT (HS256, 24h expiry)
 - `web/auth_router.py` — `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `seed_admin()`
-- `web/user_router.py` — MEXC keys, user settings with **plan enforcement**, bot control via **Redis pub/sub**
+- `web/wallet_router.py` — `POST /api/auth/wallet-nonce`, `/wallet-login`, `/wallet-link` (SIWE)
+- `web/user_router.py` — MEXC keys, user settings with **plan enforcement**, bot control via **Redis pub/sub**, **wallet save/disconnect**
 - `web/routers.py` — Status, signals, positions, trades, performance, **bot logs** endpoints
 - `web/rate_limiter.py` — Token bucket per user (60 req/min)
 - `web/main.py` — **RateLimitMiddleware** on all `/api/*` routes
@@ -68,10 +72,11 @@
 - `shared/plan_limits.py` — Plan configs (basic/pro/enterprise) + enforcement helpers
 - `shared/encryption.py` — Fernet AES-256 (used by backend + trader)
 - `shared/redis_client.py` — Redis pub/sub, lists, key-value, heartbeats
+- `shared/wallet.py` — SIWE nonce generator, EVM + Solana signature verification
 
 ### DB (PostgreSQL)
 - **5 tables**: `signals`, `positions`, `trades`, `users`, `alembic_version`
-- `users` columns: email, password_hash, mexc_api_key/secret (encrypted), mode, trade_type, plan, bot_active, is_admin, max_position_usdt
+- `users` columns: email, password_hash, mexc_api_key/secret (encrypted), mode, trade_type, plan, bot_active, is_admin, max_position_usdt, **wallet_address**, **wallet_type**
 
 ## 🔧 Quick References
 
@@ -99,6 +104,10 @@
 - `README.md` — project overview, architecture, setup, API ref
 - `LICENSE` — MIT
 - `config/.env.example` — template for required env vars
+- `shared/wallet.py` — SIWE nonce + EVM/Solana signature verification
+- `web/wallet_router.py` — wallet auth endpoints (nonce, login, link)
+- `frontend/src/context/WalletContext.tsx` — unified EVM + Solana wallet provider
+- `frontend/src/components/WalletConnect.tsx` — MetaMask / Phantom connect buttons
 
 **Run tests**: `.venv\Scripts\python.exe -m pytest tests/ -v` (64 passing)
 
