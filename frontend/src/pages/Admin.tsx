@@ -24,17 +24,20 @@ export default function Admin() {
   });
 
   const userColumns = [
-    { key: "id", label: "ID", render: (u: AdminUser) => u.id },
+    { key: "id", label: "ID", render: (u: AdminUser) => u.id, className: "hidden md:table-cell" },
     { key: "email", label: "Email", render: (u: AdminUser) => u.email },
     { key: "plan", label: "Plan", render: (u: AdminUser) => <Badge variant={u.plan === "enterprise" ? "active" : "default"}>{u.plan}</Badge> },
     { key: "mode", label: "Mode", render: (u: AdminUser) => <Badge variant={u.mode as "live" | "paper"}>{u.mode}</Badge> },
-    { key: "type", label: "Type", render: (u: AdminUser) => u.trade_type },
+    { key: "type", label: "Type", render: (u: AdminUser) => u.trade_type, className: "hidden md:table-cell" },
     { key: "bot", label: "Bot", render: (u: AdminUser) => (
       <span className={u.bot_active ? "text-accent" : "text-gray-500"}>{u.bot_active ? "Running" : "Stopped"}</span>
     )},
-    { key: "mexc", label: "MEXC", render: (u: AdminUser) => (
-      <span className={u.has_mexc_keys ? "text-accent" : "text-gray-500"}>{u.has_mexc_keys ? "Configured" : "—"}</span>
-    )},
+    { key: "exchange", label: "Exchange", render: (u: AdminUser) => (
+      <span className="text-xs font-mono text-gray-400 uppercase">{u.exchange || "mexc"}</span>
+    ), className: "hidden md:table-cell" },
+    { key: "keys", label: "Keys", render: (u: AdminUser) => (
+      <span className={u.has_api_keys ? "text-accent" : "text-gray-500"}>{u.has_api_keys ? "Configured" : "—"}</span>
+    ), className: "hidden md:table-cell" },
     { key: "wallet", label: "Wallet", render: (u: AdminUser) => u.wallet_address ? (
       <span className="text-xs text-gray-400">{u.wallet_address.slice(0, 8)}...{u.wallet_address.slice(-4)}</span>
     ) : <span className="text-gray-500">—</span>},

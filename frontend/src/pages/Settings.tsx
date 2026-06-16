@@ -9,11 +9,12 @@ import { Card } from "../components/ui/Card";
 import { WalletIcon, KeyIcon, ShieldIcon, SettingsIcon, ChartIcon, CheckIcon, CopyIcon, TrashIcon, BrainIcon } from "../components/Icons";
 import { PageTransition } from "../components/PageTransition";
 import WalletConnect from "../components/WalletConnect";
-import type { BotMode, TradeType, WhitelistEntry } from "../types";
+import type { BotMode, TradeType, WhitelistEntry, ExchangeName } from "../types";
 
 export default function Settings() {
   const { user, updateUser } = useAuth();
   const { addToast } = useToast();
+  const [exchange, setExchange] = useState<ExchangeName>("mexc");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [keysSaved, setKeysSaved] = useState(false);
@@ -34,12 +35,13 @@ export default function Settings() {
   const [generatedKey, setGeneratedKey] = useState("");
 
   const { data: existingKeys } = useQuery({
-    queryKey: ["mexcKeys"],
-    queryFn: api.getMexcKeys,
+    queryKey: ["exchangeKeys"],
+    queryFn: api.getExchangeKeys,
   });
 
   useEffect(() => {
     if (existingKeys?.has_keys) {
+      setExchange(existingKeys.exchange || "mexc");
       setApiKey(existingKeys.api_key);
       setApiSecret(existingKeys.api_secret);
       setKeysVerified(existingKeys.keys_verified ?? false);
@@ -47,13 +49,13 @@ export default function Settings() {
   }, [existingKeys]);
 
   const saveKeys = useMutation({
-    mutationFn: () => api.updateMexcKeys(apiKey, apiSecret),
+    mutationFn: () => api.updateExchangeKeys(apiKey, apiSecret, exchange),
     onSuccess: (data) => {
       setKeysSaved(true);
       setKeysVerified(data.keys_verified);
       setSpotOk(data.spot_ok);
       setFuturesOk(data.futures_ok);
-      updateUser({ has_mexc_keys: true });
+      updateUser({ has_api_keys: true, exchange });
       setTimeout(() => setKeysSaved(false), 3000);
     },
     onError: () => {
@@ -164,7 +166,7 @@ export default function Settings() {
             <p className="text-gray-400 text-sm">Configure your bot and MEXC connection</p>
           </div>
 
-          {/* MEXC API Keys */}
+          {/* Exchange API Keys */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <Card className="p-6 space-y-4">
               <div className="flex items-center justify-between">
@@ -173,22 +175,33 @@ export default function Settings() {
                     <KeyIcon className="w-5 h-5 text-accent" />
                   </div>
                   <div>
-                    <h2 className="font-heading font-bold text-lg">MEXC API Keys</h2>
-                    <p className="text-gray-400 text-sm">Connect your MEXC exchange account</p>
+                    <h2 className="font-heading font-bold text-lg">Exchange API Keys</h2>
+                    <p className="text-gray-400 text-sm">Connect your exchange account</p>
                   </div>
                 </div>
-                {user?.has_mexc_keys && keysVerified
+                {user?.has_api_keys && keysVerified
                   ? <span className="flex items-center gap-1 text-accent text-sm font-semibold"><CheckIcon className="w-4 h-4" /> Verified {spotOk ? "Spot ✓" : ""} {futuresOk ? "Futures ✓" : ""}</span>
-                  : user?.has_mexc_keys && !keysVerified
+                  : user?.has_api_keys && !keysVerified
                     ? <span className="flex items-center gap-1 text-yellow-400 text-sm font-semibold">⚠️ Not Verified</span>
                     : null}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Exchange</label>
+                <select value={exchange} onChange={(e) => setExchange(e.target.value as ExchangeName)}
+                  className="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all text-sm"
+                >
+                  <option value="mexc">MEXC</option>
+                  <option value="binance">Binance</option>
+                  <option value="bybit">Bybit</option>
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">API Key</label>
                 <input type="text" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   className="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 transition-all font-mono text-sm"
-                  placeholder="mx0vgl..." />
+                  placeholder={exchange === "mexc" ? "mx0vgl..." : exchange === "binance" ? "Binance API key" : "Bybit API key"} />
               </div>
 
               <div>
@@ -200,16 +213,16 @@ export default function Settings() {
 
               <div className="text-xs text-gray-500 space-y-1">
                 <p>Keys are encrypted at rest using AES-256</p>
-                <p>Enable <strong>Spot & Margin Trading</strong> and <strong>Read-only</strong> permissions on MEXC</p>
+                <p>Enable <strong>Spot & Margin Trading</strong> and <strong>Read-only</strong> permissions on your exchange</p>
               </div>
 
               {saveKeys.error && (
-                <p className="text-red-400 text-sm">{(saveKeys.error as { detail?: string })?.detail || "Failed to verify keys. Check your MEXC credentials."}</p>
+                <p className="text-red-400 text-sm">{(saveKeys.error as { detail?: string })?.detail || "Failed to verify keys. Check your credentials."}</p>
               )}
               <button onClick={() => saveKeys.mutate()} disabled={!apiKey || !apiSecret || saveKeys.isPending}
                 className="bg-accent hover:bg-accent-dark text-dark-900 font-bold px-6 py-2.5 rounded-xl transition-all disabled:opacity-40"
               >
-                {saveKeys.isPending ? "Verifying with MEXC..." : keysSaved ? "Keys Verified!" : "Save & Verify Keys"}
+                {saveKeys.isPending ? `Verifying with ${exchange.toUpperCase()}...` : keysSaved ? "Keys Verified!" : "Save & Verify Keys"}
               </button>
             </Card>
           </motion.div>
@@ -320,7 +333,7 @@ export default function Settings() {
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               <button onClick={() => deleteWhitelistMutation.mutate(entry.id)} disabled={deleteWhitelistMutation.isPending}
-                                className="text-xs text-red-400 hover:text-red-300"
+                                className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg"
                               >
                                 Delete
                               </button>
@@ -360,7 +373,7 @@ export default function Settings() {
                 ))}
               </div>
               <p className="text-xs text-gray-500">
-                {user?.mode === "live" ? "Live mode places REAL orders on MEXC. Tread carefully." : "Paper mode simulates trades with virtual balance. Safe to test."}
+                {user?.mode === "live" ? "Live mode places REAL orders on your exchange. Tread carefully." : "Paper mode simulates trades with virtual balance. Safe to test."}
               </p>
             </Card>
           </motion.div>

@@ -15,9 +15,9 @@ export default function Trades() {
     { key: "symbol", label: "Symbol", render: (t: Trade) => <span className="font-medium">{t.symbol}</span> },
     { key: "side", label: "Side", render: (t: Trade) => <Badge variant={t.side === "buy" ? "buy" : "sell"}>{t.side}</Badge> },
     { key: "price", label: "Price", render: (t: Trade) => `$${t.price.toFixed(4)}` },
-    { key: "qty", label: "Qty", render: (t: Trade) => t.quantity },
-    { key: "total", label: "Total", render: (t: Trade) => `$${t.total.toFixed(2)}` },
-    { key: "fee", label: "Fee", render: (t: Trade) => <span className="text-gray-400">${t.fee.toFixed(4)}</span> },
+    { key: "qty", label: "Qty", render: (t: Trade) => t.quantity, className: "hidden md:table-cell" },
+    { key: "total", label: "Total", render: (t: Trade) => `$${t.total.toFixed(2)}`, className: "hidden md:table-cell" },
+    { key: "fee", label: "Fee", render: (t: Trade) => <span className="text-gray-400">${t.fee.toFixed(4)}</span>, className: "hidden md:table-cell" },
   ];
 
   return (

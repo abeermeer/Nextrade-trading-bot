@@ -13,8 +13,8 @@ export default function Positions() {
   const columns = [
     { key: "symbol", label: "Symbol", render: (p: Position) => <span className="font-medium">{p.symbol}</span> },
     { key: "side", label: "Side", render: (p: Position) => <Badge variant={p.side === "buy" ? "buy" : "sell"}>{p.side}</Badge> },
-    { key: "entry", label: "Entry", render: (p: Position) => `$${p.entry_price.toFixed(4)}` },
-    { key: "current", label: "Current", render: (p: Position) => `$${p.current_price.toFixed(4)}` },
+    { key: "entry", label: "Entry", render: (p: Position) => `$${p.entry_price.toFixed(4)}`, className: "hidden md:table-cell" },
+    { key: "current", label: "Current", render: (p: Position) => `$${p.current_price.toFixed(4)}`, className: "hidden md:table-cell" },
     { key: "qty", label: "Qty", render: (p: Position) => p.quantity },
     { key: "pnl", label: "Unrealized P&L", render: (p: Position) => (
       <span className={`font-medium ${p.unrealized_pnl >= 0 ? "text-accent" : "text-red-400"}`}>

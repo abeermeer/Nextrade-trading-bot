@@ -15,9 +15,9 @@ export default function Signals() {
     { key: "symbol", label: "Symbol", render: (s: Signal) => <span className="font-medium">{s.symbol}</span> },
     { key: "action", label: "Action", render: (s: Signal) => <Badge variant={s.action as "buy" | "sell" | "hold"}>{s.action}</Badge> },
     { key: "confidence", label: "Confidence", render: (s: Signal) => `${(s.confidence * 100).toFixed(0)}%` },
-    { key: "price", label: "Price", render: (s: Signal) => `$${s.price.toFixed(4)}` },
-    { key: "timeframe", label: "Timeframe", render: (s: Signal) => <span className="text-gray-400">{s.timeframe}</span> },
-    { key: "strategies", label: "Strategies", render: (s: Signal) => <span className="text-gray-500 text-xs">{s.strategy_results?.length || 0} signals</span> },
+    { key: "price", label: "Price", render: (s: Signal) => `$${s.price.toFixed(4)}`, className: "hidden md:table-cell" },
+    { key: "timeframe", label: "Timeframe", render: (s: Signal) => <span className="text-gray-400">{s.timeframe}</span>, className: "hidden md:table-cell" },
+    { key: "strategies", label: "Strategies", render: (s: Signal) => <span className="text-gray-500 text-xs">{s.strategy_results?.length || 0} signals</span>, className: "hidden md:table-cell" },
   ];
 
   return (

@@ -9,7 +9,7 @@ from trader.exchange.base import BaseExchangeClient
 logger = get_logger(__name__)
 
 
-class MEXCClient(BaseExchangeClient):
+class BybitClient(BaseExchangeClient):
     def __init__(
         self,
         api_key: str,
@@ -26,7 +26,7 @@ class MEXCClient(BaseExchangeClient):
 
     async def _get_spot(self) -> ccxt.Exchange:
         if self._spot is None:
-            self._spot = ccxt.mexc({
+            self._spot = ccxt.bybit({
                 "apiKey": self._api_key,
                 "secret": self._api_secret,
                 "options": {"defaultType": "spot"},
@@ -36,10 +36,10 @@ class MEXCClient(BaseExchangeClient):
 
     async def _get_futures(self) -> ccxt.Exchange:
         if self._futures is None:
-            self._futures = ccxt.mexc({
+            self._futures = ccxt.bybit({
                 "apiKey": self._api_key,
                 "secret": self._api_secret,
-                "options": {"defaultType": "swap"},
+                "options": {"defaultType": "linear"},
                 "sandbox": self._use_sandbox,
             })
         return self._futures
@@ -53,8 +53,7 @@ class MEXCClient(BaseExchangeClient):
         except AuthenticationError:
             pass
         except (NetworkError, ExchangeError):
-            if not result["spot_ok"]:
-                pass
+            pass
         try:
             fut = await self._get_futures()
             await fut.fetch_balance()
@@ -93,11 +92,10 @@ class MEXCClient(BaseExchangeClient):
         ccxt_type = "market" if order_type == OrderType.MARKET else "limit"
 
         params: dict = {}
-
         if stop_loss:
-            params["stopLossPrice"] = stop_loss
+            params["stopLoss"] = stop_loss
         if take_profit:
-            params["takeProfitPrice"] = take_profit
+            params["takeProfit"] = take_profit
 
         logger.info(
             "order_created",
@@ -117,7 +115,6 @@ class MEXCClient(BaseExchangeClient):
             price=price,
             params=params,
         )
-
         return order
 
     async def cancel_order(self, order_id: str, symbol: str, market: str = "spot") -> dict:
@@ -158,7 +155,7 @@ class MEXCClient(BaseExchangeClient):
             await self._spot.close()
         if self._futures:
             await self._futures.close()
-        logger.info("mexc_client_closed")
+        logger.info("bybit_client_closed")
 
     async def fetch_ticker(self, symbol: str) -> dict:
         ex = await self._get_spot()

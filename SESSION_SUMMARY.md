@@ -46,18 +46,23 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 11. **Status page** — Created `/status` page at `frontend/src/pages/Status.tsx` with live service checks (health endpoint, analyst/trader alive), uptime display, latency per service, SLA commitment table (Basic/Pro/Enterprise). Added to App.tsx routes and footer links.
 12. **Error handling** — Fixed silent `catch(() => {})` in StrategyPerformance and AdminAnalytics pages — now shows error toasts via `useToast()`.
 
-### 🔵 Still Pending
-6/13. **Backtesting engine** — endpoint is still a placeholder (`{"status": "queued"}`), no real historical data fetch or strategy execution
-12. **Multi-exchange (Binance + Bybit)** — exchange clients not yet created
-15. **Docker Desktop** — not running locally, can't test containers
-16. **Mobile polish** — basic responsive patterns exist, need full audit
-17. **Multi-exchange** — Binance + Bybit requested
+### ✅ Completed (backlog cleared)
+13. **Backtesting engine** — Wired `POST /api/backtest` to real `Backtester.run()`. Loads `settings.yaml` + `strategies.yaml` via `ConfigLoader`, maps strategy to timeframe, runs async historical fetch + strategy execution + metric calculation. Returns `{total_pnl, total_pnl_pct, win_rate, max_drawdown_pct, sharpe_ratio, equity_curve[], trades[]}`. (2 files: `platform_router.py:427-448`)
+14. **Backtesting frontend** — Full result display: 8 metric cards (P&L, return %, win rate, max DD, total trades, Sharpe, final balance, period), interactive equity curve chart via Recharts `AreaChart`, sortable trade table with Badge for buy/sell actions. Added `BacktestResult` type. (3 files: `Backtesting.tsx`, `types/index.ts`, `api/client.ts`)
+15. **README** — Fully rewritten with all 50+ API endpoints, project structure, feature list, stack details, setup instructions. (1 file: `README.md`)
+
+### ✅ Completed This Session
+- **Multi-exchange (Binance + Bybit)** — Created `BaseExchangeClient` ABC in `trader/exchange/base.py`. Created `BinanceClient` and `BybitClient` extending it. Added `ExchangeDB` enum + `exchange` column to `UserRecord`. Created `create_exchange()` factory. Updated `UserSession` to use factory. Added `PUT /api/user/exchange-keys` + `GET /api/user/exchange-keys` endpoints. Updated frontend Settings page with exchange selector dropdown. Updated auth responses, bot status, admin list all to include exchange field. (12 files)
+
+### ✅ Completed
+- **Mobile polish** — Comprehensive audit + fixes: Landing page navbar now has hamburger menu with full link list (`hidden md:flex`). Touch targets increased across all pages (navbar buttons `p-1`→`p-2.5`, logout `py-1.5`→`py-2.5`, WalletConnect `px-3 py-1.5 text-xs`→`px-4 py-2.5 text-sm`, delete buttons `px-3 py-1.5`). Table columns hidden on mobile via `className: "hidden md:table-cell"` for Admin (ID, Type, Exchange, Keys), Trades (Qty, Total, Fee), Positions (Entry, Current), Signals (Price, Timeframe, Strategies). Toast container centered on mobile (`left-4`). Added `touch-action: manipulation` and `-webkit-tap-highlight-color: transparent` to global CSS. (10 files)
+
+### ✅ Completed
+- **Docker Desktop** — Docker CLI 29.5.3 available, daemon was stopped. Started Docker Desktop 4.77.0. Created `.env` with mock keys. Fixed `docker-compose.override.yml` (`web` → `backend` service name mismatch). Built backend image (pip install 100+ deps, 130s). Started redis + backend containers. Verified health endpoint returns `{"status":"ok"}`. Cleaned up containers. (2 files: `.env`, `docker-compose.override.yml`)
 
 ## Remaining
-1. Real backtesting engine (fetch historical data + run strategies)
-2. Binance + Bybit exchange clients
-3. Custom domain (once purchased)
-4. Stripe/PayPal integration (once account set up)
+1. Custom domain (once purchased)
+2. Stripe/PayPal integration (once account set up)
 
 ## Key Decisions
 - Three-platform split: Netlify (frontend), Railway (backend+DB+Redis), GitHub (code)

@@ -9,9 +9,15 @@ from shared.encryption import encrypt, decrypt
 from shared.plan_limits import get_plan_limits, enforce_plan_limit
 from shared.redis_client import RedisClient
 from shared.wallet import make_nonce, build_siwe_message, verify_wallet_signature
-from trader.exchange.mexc_client import MEXCClient
+from trader.exchange.factory import create_exchange
 
 router = APIRouter(prefix="/api/user")
+
+
+class ExchangeKeysRequest(BaseModel):
+    api_key: str
+    api_secret: str
+    exchange: str = "mexc"
 
 
 class MexcKeysRequest(BaseModel):
@@ -40,13 +46,53 @@ class LoginRequest(BaseModel):
     password: str
 
 
+@router.put("/exchange-keys")
+async def update_exchange_keys(
+    data: ExchangeKeysRequest,
+    user: UserRecord = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    exchange_name = data.exchange.lower()
+    client = create_exchange(api_key=data.api_key, api_secret=data.api_secret, exchange_name=exchange_name, use_sandbox=False)
+    try:
+        validation = await client.validate_credentials()
+        await client.close()
+    except Exception as e:
+        await client.close()
+        raise HTTPException(status_code=503, detail=f"Cannot validate {exchange_name} keys: {str(e)}")
+
+    if not validation["spot_ok"] and not validation["futures_ok"]:
+        ex_domains = {"mexc": "mexc.com", "binance": "binance.com", "bybit": "bybit.com"}
+        domain = ex_domains.get(exchange_name, f"{exchange_name}.com")
+        raise HTTPException(
+            status_code=400,
+            detail=f"{exchange_name.upper()} API key verification failed. Check your key and secret at {domain}. "
+                   "Ensure Spot & Margin Trading and Read-only permissions are enabled."
+        )
+
+    from db.models import ExchangeDB
+    user.exchange = ExchangeDB(exchange_name)
+    user.mexc_api_key = encrypt(data.api_key)
+    user.mexc_api_secret = encrypt(data.api_secret)
+    user.mexc_keys_verified = True
+    await session.commit()
+    return {
+        "success": True,
+        "exchange": exchange_name,
+        "keys_verified": True,
+        "spot_ok": validation["spot_ok"],
+        "futures_ok": validation["futures_ok"],
+        "message": f"{exchange_name.upper()} API keys saved and verified",
+    }
+
+
 @router.put("/mexc-keys")
 async def update_mexc_keys(
     data: MexcKeysRequest,
     user: UserRecord = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    client = MEXCClient(api_key=data.api_key, api_secret=data.api_secret, use_sandbox=False)
+    client = create_exchange(api_key=data.api_key, api_secret=data.api_secret, exchange_name="mexc", use_sandbox=False)
     try:
         validation = await client.validate_credentials()
         await client.close()
@@ -61,12 +107,14 @@ async def update_mexc_keys(
                    "Ensure Spot & Margin Trading and Read-only permissions are enabled."
         )
 
+    user.exchange = ExchangeDB.mexc
     user.mexc_api_key = encrypt(data.api_key)
     user.mexc_api_secret = encrypt(data.api_secret)
     user.mexc_keys_verified = True
     await session.commit()
     return {
         "success": True,
+        "exchange": "mexc",
         "keys_verified": True,
         "spot_ok": validation["spot_ok"],
         "futures_ok": validation["futures_ok"],
@@ -74,13 +122,29 @@ async def update_mexc_keys(
     }
 
 
-@router.get("/mexc-keys")
-async def get_mexc_keys(user: UserRecord = Depends(get_current_user)):
+@router.get("/exchange-keys")
+async def get_exchange_keys(user: UserRecord = Depends(get_current_user)):
+    exchange_name = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
     if not user.mexc_api_key:
-        return {"api_key": "", "api_secret": "", "has_keys": False, "keys_verified": False}
+        return {"api_key": "", "api_secret": "", "exchange": exchange_name, "has_keys": False, "keys_verified": False}
     return {
         "api_key": decrypt(user.mexc_api_key),
         "api_secret": decrypt(user.mexc_api_secret),
+        "exchange": exchange_name,
+        "has_keys": True,
+        "keys_verified": user.mexc_keys_verified or False,
+    }
+
+
+@router.get("/mexc-keys")
+async def get_mexc_keys(user: UserRecord = Depends(get_current_user)):
+    exchange_name = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
+    if not user.mexc_api_key:
+        return {"api_key": "", "api_secret": "", "exchange": exchange_name, "has_keys": False, "keys_verified": False}
+    return {
+        "api_key": decrypt(user.mexc_api_key),
+        "api_secret": decrypt(user.mexc_api_secret),
+        "exchange": exchange_name,
         "has_keys": True,
         "keys_verified": user.mexc_keys_verified or False,
     }
@@ -114,10 +178,11 @@ async def control_bot(
     session: AsyncSession = Depends(get_session),
 ):
     if data.action == "start":
+        exchange_name = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
         if not user.mexc_api_key or not user.mexc_api_secret:
-            raise HTTPException(status_code=400, detail="Set MEXC API keys first")
+            raise HTTPException(status_code=400, detail=f"Set {exchange_name.upper()} API keys first")
         if user.mode == BotModeDB.live and not user.mexc_keys_verified:
-            raise HTTPException(status_code=400, detail="Cannot start bot in live mode: MEXC API keys are not verified. Go to Settings and re-save your keys.")
+            raise HTTPException(status_code=400, detail=f"Cannot start bot in live mode: {exchange_name.upper()} API keys are not verified. Go to Settings and re-save your keys.")
         user.bot_active = True
     elif data.action == "stop":
         user.bot_active = False
@@ -136,11 +201,13 @@ async def control_bot(
 
 @router.get("/bot/status")
 async def bot_status(user: UserRecord = Depends(get_current_user)):
+    exchange_name = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
     return {
         "bot_active": user.bot_active,
         "mode": user.mode.value,
         "trade_type": user.trade_type.value,
-        "has_mexc_keys": bool(user.mexc_api_key and user.mexc_api_secret),
+        "exchange": exchange_name,
+        "has_api_keys": bool(user.mexc_api_key and user.mexc_api_secret),
         "plan": user.plan.value,
         "max_position_usdt": user.max_position_usdt,
     }
@@ -214,9 +281,10 @@ async def list_users(
             "plan": u.plan.value,
             "mode": u.mode.value,
             "trade_type": u.trade_type.value,
+            "exchange": u.exchange.value if hasattr(u.exchange, 'value') else (u.exchange or "mexc"),
             "bot_active": u.bot_active,
             "is_admin": u.is_admin,
-            "has_mexc_keys": bool(u.mexc_api_key and u.mexc_api_secret),
+            "has_api_keys": bool(u.mexc_api_key and u.mexc_api_secret),
             "max_position_usdt": u.max_position_usdt,
             "created_at": u.created_at.isoformat() if u.created_at else None,
             "wallet_address": u.wallet_address or "",

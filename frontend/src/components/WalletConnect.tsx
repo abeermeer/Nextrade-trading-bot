@@ -17,14 +17,14 @@ export default function WalletConnect() {
   return (
     <div className="flex items-center gap-2">
       <button onClick={connectEVM} disabled={connecting}
-        className="text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg transition-all disabled:opacity-40 whitespace-nowrap"
+        className="text-sm bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30 px-4 py-2.5 rounded-lg transition-all disabled:opacity-40 whitespace-nowrap"
       >
-        {connecting ? "..." : "🦊 MetaMask"}
+        {connecting ? "..." : "MetaMask"}
       </button>
       <button onClick={connectSolana} disabled={connecting}
-        className="text-xs bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30 px-3 py-1.5 rounded-lg transition-all disabled:opacity-40 whitespace-nowrap"
+        className="text-sm bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/30 px-4 py-2.5 rounded-lg transition-all disabled:opacity-40 whitespace-nowrap"
       >
-        {connecting ? "..." : "👻 Phantom"}
+        {connecting ? "..." : "Phantom"}
       </button>
     </div>
   );

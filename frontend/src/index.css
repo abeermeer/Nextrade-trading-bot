@@ -23,6 +23,8 @@ html {
 
 body {
   font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .font-heading {

@@ -64,7 +64,7 @@ export default function Dashboard() {
   const analystAlive = status?.analyst_alive ?? false;
   const traderAlive = status?.trader_alive ?? false;
   const botActive = botStatus?.bot_active ?? user?.bot_active ?? false;
-  const hasKeys = botStatus?.has_mexc_keys ?? user?.has_mexc_keys ?? false;
+  const hasKeys = botStatus?.has_api_keys ?? user?.has_api_keys ?? false;
 
   const signalColumns = [
     { key: "symbol", label: "Symbol", render: (s: Signal) => <span className="font-medium">{s.symbol}</span> },

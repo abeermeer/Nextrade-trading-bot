@@ -76,9 +76,10 @@ export interface AuthResponse {
   plan: PlanType;
   mode: BotMode;
   trade_type: TradeType;
+  exchange: ExchangeName;
   bot_active: boolean;
-  wallet_address?: string;
-  wallet_type?: string;
+  wallet_address: string;
+  wallet_type: string;
 }
 
 export interface WalletInfo {
@@ -94,9 +95,10 @@ export interface UserProfile {
   plan: PlanType;
   mode: BotMode;
   trade_type: TradeType;
+  exchange: ExchangeName;
   bot_active: boolean;
   max_position_usdt: number;
-  has_mexc_keys: boolean;
+  has_api_keys: boolean;
   wallet_address?: string;
   wallet_type?: string;
   withdrawal_delay_hours?: number;
@@ -108,17 +110,19 @@ export interface UserSettings {
   max_position_usdt: number;
 }
 
-export interface MexcKeys {
+export interface ExchangeKeys {
   api_key: string;
   api_secret: string;
+  exchange: ExchangeName;
   has_keys: boolean;
   keys_verified?: boolean;
   spot_ok?: boolean;
   futures_ok?: boolean;
 }
 
-export interface MexcKeysSaveResponse {
+export interface ExchangeKeysSaveResponse {
   success: boolean;
+  exchange: ExchangeName;
   keys_verified: boolean;
   spot_ok: boolean;
   futures_ok: boolean;
@@ -129,7 +133,8 @@ export interface BotControlStatus {
   bot_active: boolean;
   mode: BotMode;
   trade_type: TradeType;
-  has_mexc_keys: boolean;
+  exchange: ExchangeName;
+  has_api_keys: boolean;
   plan: PlanType;
   max_position_usdt: number;
 }
@@ -190,15 +195,37 @@ export interface AdminAnalytics {
   user_growth: { month: string; new_users: number }[];
 }
 
+export type ExchangeName = "mexc" | "binance" | "bybit";
+
+export interface BacktestResult {
+  success: boolean;
+  symbol: string;
+  timeframe: string;
+  period: string;
+  initial_balance: number;
+  final_balance: number;
+  total_pnl: number;
+  total_pnl_pct: number;
+  total_trades: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  max_drawdown_pct: number;
+  sharpe_ratio: number;
+  trades: { date: string; action: string; price: number; pnl?: number; qty?: number; balance: number }[];
+  equity_curve: { date: string; equity: number }[];
+}
+
 export interface AdminUser {
   id: number;
   email: string;
   plan: PlanType;
   mode: BotMode;
   trade_type: TradeType;
+  exchange: ExchangeName;
   bot_active: boolean;
   is_admin: boolean;
-  has_mexc_keys: boolean;
+  has_api_keys: boolean;
   max_position_usdt: number;
   created_at: string | null;
   wallet_address?: string;

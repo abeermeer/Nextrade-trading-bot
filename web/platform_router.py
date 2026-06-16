@@ -6,6 +6,8 @@ from db.database import get_session
 from db.models import UserRecord, UserApiKeyRecord, TradeRecord, PositionRecord, SignalRecord
 from web.auth import decode_token
 from shared.plan_limits import get_plan_limits, is_trial_expired
+from shared.config_loader import ConfigLoader
+from backtest.backtester import Backtester
 import secrets
 import hashlib
 import csv
@@ -434,14 +436,32 @@ async def run_backtest(
     strategy = data.get("strategy", "rsi")
     days = data.get("days", 30)
 
-    return {
-        "success": True,
-        "pair": pair,
-        "strategy": strategy,
-        "days": days,
-        "status": "queued",
-        "message": "Backtest queued. Results will be available shortly.",
-    }
+    timeframe_map = {"15m": "15m", "1h": "60m", "4h": "1h"}
+    period_map = {7: "5d", 14: "14d", 30: "1mo", 60: "2mo", 90: "3mo"}
+    timeframe = timeframe_map.get(strategy, "1h")
+    period = period_map.get(days, "3mo")
+
+    try:
+        config_loader = ConfigLoader()
+        settings = config_loader.load_settings()
+        strategies_config = config_loader.load_strategies()
+    except Exception:
+        settings = {"analyst": {}}
+        strategies_config = {}
+
+    bt = Backtester(settings, strategies_config)
+    try:
+        result = await bt.run(
+            symbol=pair,
+            timeframe=timeframe,
+            period=period,
+            initial_balance=10000.0,
+        )
+        return {"success": True, **result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {str(e)}")
 
 
 @router.get("/user/usage")

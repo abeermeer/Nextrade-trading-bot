@@ -101,6 +101,12 @@ class TradeTypeDB(str, enum.Enum):
     futures = "futures"
 
 
+class ExchangeDB(str, enum.Enum):
+    mexc = "mexc"
+    binance = "binance"
+    bybit = "bybit"
+
+
 class PlanTypeDB(str, enum.Enum):
     basic = "basic"
     pro = "pro"
@@ -118,6 +124,7 @@ class UserRecord(Base):
     mode = Column(Enum(BotModeDB), default=BotModeDB.paper)
     trade_type = Column(Enum(TradeTypeDB), default=TradeTypeDB.spot)
     plan = Column(Enum(PlanTypeDB), default=PlanTypeDB.basic)
+    exchange = Column(Enum(ExchangeDB), default=ExchangeDB.mexc)
     bot_active = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
     max_position_usdt = Column(Float, default=500.0)

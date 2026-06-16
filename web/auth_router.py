@@ -41,6 +41,7 @@ class AuthResponse(BaseModel):
     plan: str
     mode: str
     trade_type: str
+    exchange: str = "mexc"
     bot_active: bool
     wallet_address: str = ""
     wallet_type: str = ""
@@ -53,9 +54,10 @@ class UserResponse(BaseModel):
     plan: str
     mode: str
     trade_type: str
+    exchange: str = "mexc"
     bot_active: bool
     max_position_usdt: float
-    has_mexc_keys: bool
+    has_api_keys: bool
     wallet_address: str = ""
     wallet_type: str = ""
 
@@ -98,11 +100,12 @@ async def register(data: RegisterRequest, session: AsyncSession = Depends(get_se
         )
     except Exception as e:
         pass
+    exchange = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
     token = create_access_token(user.id, user.email, user.is_admin)
     return AuthResponse(
         token=token, email=user.email, is_admin=user.is_admin,
         plan=user.plan.value, mode=user.mode.value, trade_type=user.trade_type.value,
-        bot_active=user.bot_active,
+        exchange=exchange, bot_active=user.bot_active,
         wallet_address=user.wallet_address or "",
         wallet_type=user.wallet_type or "",
     )
@@ -114,11 +117,12 @@ async def login(data: LoginRequest, session: AsyncSession = Depends(get_session)
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    exchange = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
     token = create_access_token(user.id, user.email, user.is_admin)
     return AuthResponse(
         token=token, email=user.email, is_admin=user.is_admin,
         plan=user.plan.value, mode=user.mode.value, trade_type=user.trade_type.value,
-        bot_active=user.bot_active,
+        exchange=exchange, bot_active=user.bot_active,
         wallet_address=user.wallet_address or "",
         wallet_type=user.wallet_type or "",
     )
@@ -190,11 +194,12 @@ async def reset_password(data: ResetPasswordRequest, session: AsyncSession = Dep
 
 @router.get("/me")
 async def get_me(user: UserRecord = Depends(get_current_user)):
+    exchange = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
     return UserResponse(
         id=user.id, email=user.email, is_admin=user.is_admin,
         plan=user.plan.value, mode=user.mode.value, trade_type=user.trade_type.value,
-        bot_active=user.bot_active, max_position_usdt=user.max_position_usdt,
-        has_mexc_keys=bool(user.mexc_api_key and user.mexc_api_secret),
+        exchange=exchange, bot_active=user.bot_active, max_position_usdt=user.max_position_usdt,
+        has_api_keys=bool(user.mexc_api_key and user.mexc_api_secret),
         wallet_address=user.wallet_address or "",
         wallet_type=user.wallet_type or "",
     )

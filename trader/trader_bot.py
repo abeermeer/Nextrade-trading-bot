@@ -19,7 +19,8 @@ from shared.models import (
 from shared.realtime_data import RealtimeDataManager
 from shared.redis_client import RedisClient
 from trader.paper_engine import PaperEngine
-from trader.exchange.mexc_client import MEXCClient
+from trader.exchange.base import BaseExchangeClient
+from trader.exchange.factory import create_exchange
 from trader.risk_manager import RiskManager
 from trader.position_tracker import PositionTracker
 from trader.notifier import Notifier
@@ -48,14 +49,17 @@ class UserSession:
             cooldown_seconds=300,
         )
         self.paper_engine = PaperEngine()
-        self.exchange: Optional[MEXCClient] = None
+        self.exchange: Optional["BaseExchangeClient"] = None
         self._exchange_created = False
+
+        exchange_name = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
 
         if user.mexc_api_key and user.mexc_api_secret and user.mode == BotModeDB.live:
             try:
                 api_key = decrypt(user.mexc_api_key)
                 api_secret = decrypt(user.mexc_api_secret)
-                self.exchange = MEXCClient(
+                self.exchange = create_exchange(
+                    exchange_name=exchange_name,
                     api_key=api_key,
                     api_secret=api_secret,
                     use_sandbox=False,

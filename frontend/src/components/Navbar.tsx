@@ -49,7 +49,7 @@ export function AppNavbar() {
         <div className="flex items-center gap-3">
           {user ? (
             <>
-              <button onClick={toggleTheme} className="text-gray-500 hover:text-white p-1.5 rounded-lg transition-colors" title="Toggle theme">
+              <button onClick={toggleTheme} className="text-gray-500 hover:text-white p-2.5 rounded-lg transition-colors" title="Toggle theme">
                 {theme === "dark" ? (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                 ) : (
@@ -57,12 +57,12 @@ export function AppNavbar() {
                 )}
               </button>
               <span className="text-sm text-gray-500 hidden sm:block">{user.email}</span>
-              <button onClick={logout} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-400 px-3 py-1.5 rounded-lg transition-colors">
+              <button onClick={logout} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-400 px-3 py-2.5 rounded-lg transition-colors">
                 <LogoutIcon className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>
               </button>
               {/* Mobile menu toggle */}
-              <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-gray-400 p-1">
+              <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-gray-400 p-2.5">
                 {mobileOpen ? <CloseIcon /> : <MenuIcon />}
               </button>
             </>

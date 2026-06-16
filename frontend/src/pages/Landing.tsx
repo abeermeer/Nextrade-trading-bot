@@ -49,6 +49,7 @@ export default function Landing() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [stats, setStats] = useState<{ total_users: number; weekly_users: number; total_trades: number; win_rate: number } | null>(null);
   useEffect(() => {
     api.stats().then(setStats).catch(() => {});
@@ -64,9 +65,10 @@ export default function Landing() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent to-blue-accent flex items-center justify-center shadow-lg shadow-accent/20">
               <span className="text-[#07070d] font-heading font-bold text-sm">N</span>
             </div>
-            <span className="font-heading font-bold text-base tracking-[0.15em]">NEXTRADE</span>
+            <span className="font-heading font-bold text-base tracking-[0.15em] hidden sm:block">NEXTRADE</span>
           </Link>
-          <div className="flex items-center gap-6">
+
+          <div className="hidden md:flex items-center gap-6">
             <a href="#how" className="text-sm text-gray-400 hover:text-white transition-colors">How it Works</a>
             <a href="#features" className="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="text-sm text-gray-400 hover:text-white transition-colors">Pricing</a>
@@ -86,7 +88,42 @@ export default function Landing() {
               </>
             )}
           </div>
+
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-gray-400 p-2.5">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {mobileOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </div>
+
+        {mobileOpen && (
+          <div className="md:hidden border-t border-white/[0.05] bg-[#07070d]/95 backdrop-blur-xl">
+            <div className="px-6 py-4 space-y-1">
+              <a href="#how" onClick={() => setMobileOpen(false)} className="flex items-center w-full text-sm text-gray-400 hover:text-white px-3 py-3 rounded-lg transition-colors">How it Works</a>
+              <a href="#features" onClick={() => setMobileOpen(false)} className="flex items-center w-full text-sm text-gray-400 hover:text-white px-3 py-3 rounded-lg transition-colors">Features</a>
+              <a href="#pricing" onClick={() => setMobileOpen(false)} className="flex items-center w-full text-sm text-gray-400 hover:text-white px-3 py-3 rounded-lg transition-colors">Pricing</a>
+              <a href="#faq" onClick={() => setMobileOpen(false)} className="flex items-center w-full text-sm text-gray-400 hover:text-white px-3 py-3 rounded-lg transition-colors">FAQ</a>
+              <Link to="/about" onClick={() => setMobileOpen(false)} className="flex items-center w-full text-sm text-gray-400 hover:text-white px-3 py-3 rounded-lg transition-colors">About</Link>
+              <Link to="/changelog" onClick={() => setMobileOpen(false)} className="flex items-center w-full text-sm text-gray-400 hover:text-white px-3 py-3 rounded-lg transition-colors">Updates</Link>
+              {user ? (
+                <button onClick={() => { navigate("/dashboard"); setMobileOpen(false); }} className="w-full text-sm bg-accent hover:bg-accent-dark text-[#07070d] px-5 py-3 rounded-lg font-bold transition-all mt-2">
+                  Dashboard
+                </button>
+              ) : (
+                <div className="pt-2 space-y-2">
+                  <Link to="/login" onClick={() => setMobileOpen(false)} className="flex items-center justify-center w-full text-sm text-gray-400 hover:text-white px-3 py-3 rounded-lg transition-colors border border-white/10">Sign In</Link>
+                  <Link to="/signup" onClick={() => setMobileOpen(false)} className="flex items-center justify-center w-full text-sm bg-accent hover:bg-accent-dark text-[#07070d] px-5 py-3 rounded-lg font-bold transition-all shadow-lg shadow-accent/20">
+                    Get Started
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ===== HERO ===== */}
