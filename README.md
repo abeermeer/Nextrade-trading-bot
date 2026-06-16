@@ -1,6 +1,6 @@
 <div align="center">
   <h1>NexTrade AI</h1>
-  <p>Multi-tenant algorithmic trading platform for MEXC exchange</p>
+  <p>Multi-exchange algorithmic trading platform — MEXC, Binance, Bybit</p>
   <p>
     <img src="https://img.shields.io/badge/python-3.12-blue?style=flat-square" alt="Python 3.12">
     <img src="https://img.shields.io/badge/react-19-61DAFB?style=flat-square" alt="React 19">
@@ -11,7 +11,7 @@
 
 ## Overview
 
-NexTrade AI is a production-grade algorithmic trading platform that runs on the MEXC cryptocurrency exchange. It features an autonomous market analyst that generates signals using 8 strategies, a multi-tenant trader that executes positions per user, and a full SaaS web dashboard with JWT authentication, encrypted API key storage, and plan-based access control.
+NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC, Binance, and Bybit** exchanges. It features an autonomous market analyst that generates signals using 8 strategies, a multi-tenant trader that executes positions per user, and a full SaaS web dashboard with JWT authentication, encrypted API key storage, and plan-based access control.
 
 **Live demo:** [mexc-trading-bot.netlify.app](https://mexc-trading-bot.netlify.app)
 
@@ -33,7 +33,7 @@ NexTrade AI is a production-grade algorithmic trading platform that runs on the 
 ┌──────▼──────────┐          ┌───────▼───────────────────┐
 │  Analyst Bot    │          │     Trader Bot (Railway)   │
 │  · 8 strategies │ signals  │  · Multi-tenant sessions   │
-│  · Signal gen   │────────►  │  · Per-user MEXC clients  │
+│  · Signal gen   │────────►  │    ·  Per-user exchange clients  │
 │  · Heartbeat    │          │  · Paper + Live execution  │
 └─────────────────┘          │  · Risk management         │
                              │  · Position tracking        │
@@ -58,7 +58,7 @@ NexTrade AI is a production-grade algorithmic trading platform that runs on the 
 - **8 strategies**: RSI, MACD cross, EMA trend, Volume breakout, Bollinger squeeze, Supertrend, ADX, Ichimoku
 - **Multi-timeframe analysis**: 15m, 1h, 4h with configurable signal resolution
 - **Paper trading** with realistic fill simulation (slippage, spread)
-- **Live trading** via MEXC exchange (spot + futures)
+- **Live trading** via MEXC, Binance, Bybit (spot + futures)
 - **Risk management**: max position size, daily drawdown limits, circuit breaker, cooldown
 - **Per-user positions, signals, and trade history** stored in PostgreSQL
 
@@ -66,6 +66,7 @@ NexTrade AI is a production-grade algorithmic trading platform that runs on the 
 - **JWT authentication** with bcrypt password hashing (24h token expiry)
 - **Three subscription tiers**: Basic ($29), Pro ($79), Enterprise ($199)
 - **Plan enforcement**: per-tier limits on pairs, bots, position size, and trade type
+- **Multi-exchange**: MEXC, Binance, Bybit via factory pattern with per-exchange client classes
 - **Encrypted API key storage**: Fernet AES-256 at rest
 - **Multi-tenant trader**: shared executor with per-user isolated sessions
 - **Real-time bot control** via Redis pub/sub (no polling delay)
@@ -134,7 +135,7 @@ NexTrade AI is a production-grade algorithmic trading platform that runs on the 
 - Python 3.12+
 - Node.js 20+
 - Redis 7+
-- MEXC API keys
+- Exchange API keys (MEXC, Binance, or Bybit)
 
 ### 1. Clone & Setup
 
@@ -158,7 +159,7 @@ cd ..
 ### 2. Configure
 
 ```bash
-# Required: MEXC API credentials
+# Required: Exchange API credentials (MEXC, Binance, or Bybit)
 cp config/.env.example config/.env
 # Edit config/.env with your keys
 
@@ -232,6 +233,8 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 | WS | `/ws` | WebSocket real-time updates (JWT auth) |
 | PUT | `/api/user/mexc-keys` | Save encrypted MEXC keys |
 | GET | `/api/user/mexc-keys` | Decrypt & return MEXC keys |
+| PUT | `/api/user/exchange-keys` | Save & validate keys for any exchange (MEXC/Binance/Bybit) |
+| GET | `/api/user/exchange-keys` | Get stored exchange keys |
 | PUT | `/api/user/settings` | Update mode, trade type, position limit |
 | POST | `/api/user/bot` | Start/stop bot via Redis pub/sub |
 | GET | `/api/user/bot/status` | Bot configuration status |
@@ -300,7 +303,7 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 │   ├── risk_manager.py      # Position sizing, drawdown, circuit breaker
 │   ├── position_tracker.py
 │   ├── notifier.py          # Telegram + Email alerts
-│   └── exchange/            # MEXC client (spot + futures)
+│   └── exchange/            # Exchange clients — MEXC, Binance, Bybit (base + factory)
 ├── web/                     # FastAPI web backend
 │   ├── main.py              # App factory + RateLimitMiddleware + WebSocket /ws
 │   ├── auth.py              # bcrypt + JWT utilities

@@ -60,6 +60,25 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 ### ✅ Completed
 - **Docker Desktop** — Docker CLI 29.5.3 available, daemon was stopped. Started Docker Desktop 4.77.0. Created `.env` with mock keys. Fixed `docker-compose.override.yml` (`web` → `backend` service name mismatch). Built backend image (pip install 100+ deps, 130s). Started redis + backend containers. Verified health endpoint returns `{"status":"ok"}`. Cleaned up containers. (2 files: `.env`, `docker-compose.override.yml`)
 
+### ✅ Completed (This Session — Jun 17)
+- **Multi-exchange (Binance + Bybit)** — `BaseExchangeClient` ABC, `BinanceClient`/`BybitClient`, factory pattern, exchange selector in Settings (12 files)
+- **MEXC API key validation** — `validate_credentials()` on save, blocks live start, frontend badges (7 files)
+- **Usage-based enforcement** — `max_api_calls_per_day`, `max_bot_hours_per_month`, `max_trade_volume_per_month` with `enforce_usage_limit()`
+- **CI/CD pipeline** — GitHub Actions `test.yml` + `deploy.yml` (Netlify auto-deploy)
+- **Frontend tests** — vitest + @testing-library/react setup, smoke test
+- **Plan enforcement in trader** — `UserSession` carries plan, checks `spot_only`/`max_pairs`, `RiskManager` uses plan limits
+- **4 HTML email templates** — verify, reset, welcome, trade notification (dark theme)
+- **netlify.toml** — build config + SPA redirects
+- **Onboarding email** — Welcome with MEXC setup steps on registration
+- **Status page** — `/status` with live service checks, uptime, latency, SLA table
+- **Error handling** — Fixed silent `catch(() => {})` → error toasts
+- **Backtesting engine wired** — `POST /api/backtest` → real `Backtester.run()`, full result set
+- **Backtesting frontend** — 8 metric cards, equity curve chart, sortable trade table
+- **README** — Rewritten with all 50+ API endpoints, full project structure
+- **Mobile polish** — Hamburger menu, touch targets, responsive columns, toast centering
+- **Docker Desktop** — Started daemon, built backend image, verified health
+- **Triple-platform deploy** — Committed + pushed to GitHub (`730281b`), deployed frontend to Netlify (build + live), deployed backend to Railway (all 3 services online). Fixed `Badge` variant `info`→`success` in Backtesting TSX.
+
 ## Remaining
 1. Custom domain (once purchased)
 2. Stripe/PayPal integration (once account set up)
