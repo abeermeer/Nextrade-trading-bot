@@ -140,7 +140,7 @@ export default function Backtesting() {
                           {result.trades.map((t, i) => (
                             <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
                               <td className="px-4 py-2 text-gray-400 font-mono text-xs">{t.date?.slice(0, 10) || "-"}</td>
-                              <td className="px-4 py-2"><Badge variant={t.action === "buy" ? "info" : t.action === "sell" ? "warning" : "default"}>{t.action}</Badge></td>
+                              <td className="px-4 py-2"><Badge variant={t.action === "buy" ? "success" : t.action === "sell" ? "warning" : "default"}>{t.action}</Badge></td>
                               <td className="px-4 py-2 text-right font-mono">${t.price?.toFixed(4) || "-"}</td>
                               <td className={`px-4 py-2 text-right font-mono ${(t.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>{t.pnl ? `$${t.pnl.toFixed(2)}` : "-"}</td>
                               <td className="px-4 py-2 text-right font-mono text-gray-300">${t.balance?.toFixed(2) || "-"}</td>
