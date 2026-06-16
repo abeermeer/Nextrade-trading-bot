@@ -47,14 +47,44 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 ## Completed This Session
 - **Real social proof from DB**: Added `GET /api/stats` endpoint returning `total_users`, `weekly_users`, `total_trades`, `win_rate` from DB. Landing hero now shows real counts instead of hardcoded "2,400+". CTA section pulls from live data.
 - **Removed fake metrics**: Removed floating "87% Win Rate" card from `HeroIllustration`. All displayed stats now come from actual DB queries.
-- **Terms of Service page** (`/terms`): 9 sections (Acceptance, Registration, Fees, Trading Risks, API Key Security, IP, Liability, Termination, Governing Law) — NexTrade AI, Larnaca, Cyprus
-- **Privacy Policy page** (`/privacy`): 7 sections — AES-256 encryption, no data selling, encrypted API keys
-- **Whitepaper page** (`/whitepaper`): Deep-dive on all 8 strategies (RSI, MACD, EMA, Volume, Bollinger, Supertrend, ADX, Ichimoku) + architecture (Redis pub/sub flow) + risk management (circuit breaker, trailing stop-loss, position sizing, cooldown)
-- **Company identity in footer**: 3-column grid (brand description, company links to Terms/Privacy/Whitepaper/Docs, contact info — support@nextrade.ai, Larnaca, Cyprus). Real links replace plain text.
-- **Support email in Navbar**: `Support` mailto: link in Navbar for anonymous users, plus `support@nextrade.ai` in footer contact section
-- **About page** (`/about`): Mission, development timeline (2025 Q3 → 2026 Q2), architecture overview (Analyst + Trader via Redis), team (Abeer Meer), company info (NexTrade AI Ltd., Larnaca, Cyprus)
-- **GitHub repo polish**: Description, homepage URL (`https://mexc-trading-bot.netlify.app`), 7 topics set via `gh repo edit`; README updated with Trust & Transparency section + `/api/stats` in API reference
-- **Frontend builds clean** (zero errors), pushed to GitHub, deployed to Netlify + Railway
+- **Terms of Service page** (`/terms`): 9 sections — NexTrade AI, Larnaca, Cyprus
+- **Privacy Policy page** (`/privacy`): 7 sections — AES-256 encryption, no data selling
+- **Whitepaper page** (`/whitepaper`): Deep-dive on all 8 strategies + architecture + risk management
+- **Company identity in footer**: 3-column grid with Terms/Privacy/Whitepaper/Docs/Security/Changelog/About links, support@nextrade.ai, Larnaca, Cyprus
+- **Support email in Navbar + footer**: mailto:support@nextrade.ai
+- **About page** (`/about`): Mission, timeline, architecture, team, company info
+- **GitHub repo polish**: Description, homepage, 7 topics, README updated
+
+### 💰 Revenue-Ready Features
+- **Usage tracking**: `usage_api_calls`, `usage_bot_hours`, `usage_trade_volume` columns on UserRecord; `GET /api/user/usage` endpoint
+- **Free trial**: `trial_end` on UserRecord, `is_trial_expired()` in `plan_limits.py`, `GET /api/user/trial-status` endpoint
+- **Strategy performance**: `GET /api/strategy-performance` — per-strategy win rate, P&L, signal count; frontend page at `/strategy-performance`
+- **Portfolio view**: `GET /api/portfolio` — aggregate P&L, pair breakdown, unrealized P&L; section on Dashboard
+- **CSV export**: `GET /api/trades/export`, `GET /api/positions/export` — streaming CSV; buttons on Dashboard
+- **Backtesting UI**: `POST /api/backtest` endpoint + frontend form at `/backtesting` (pair, strategy, period selectors)
+- **Custom pair selection**: `GET/PUT /api/user/selected-pairs` — per-user toggle of 10 pairs; UI in Settings
+- **Smart notifications**: `GET/PUT /api/user/notification-prefs` — email/telegram/push toggles; UI in Settings
+- **User API keys**: `UserApiKeyRecord` table; `POST/GET/DELETE /api/user/api-keys`; UI in Settings with copy-on-create
+- **Strategy config**: `GET/PUT /api/user/strategy-config` — per-user strategy tuning ready
+- **Admin analytics**: `GET /api/admin/analytics` — user growth (6mo), plan breakdown, active bots, total P&L; frontend at `/admin/analytics`
+
+### 🛡️ Trust Features
+- **Security page** (`/security`): 8 sections covering AES-256, zero-knowledge, transparency, paper sandbox, monitoring, circuit breaker, multi-tenant isolation, JWT auth
+- **Changelog page** (`/changelog`): Release timeline (v1.0.0 → v1.2.0) with feature/improvement badges
+- **SLA commitment**: "99.5% uptime SLA on all plans" added to pricing section
+- **GDPR compliance**: `GET /api/user/data-export` (full user data JSON), `DELETE /api/user/data-delete` (anonymize + delete)
+- **Rate limiter toast**: 429 errors now dispatch custom event; ToastContext listens and shows error toast
+
+### 📊 Platform Depth
+- **Code splitting**: All routes lazily loaded with `React.lazy` + `Suspense` — largest chunk now 336KB (was 840KB)
+- **Dark/light mode toggle**: `ThemeContext` with localStorage persistence; sun/moon button in Navbar; `data-theme` attribute on `<html>`
+- **Loading skeletons**: `Skeleton`, `TableSkeleton`, `CardSkeleton` components used across pages
+- **Error boundaries**: `ErrorBoundary` component wrapping all routes with retry button
+- **Sortable tables**: `SortableTable<T>` component added to `ui/Table.tsx` with click-to-sort headers
+- **Toast notifications**: `ToastContext` with auto-dismiss (4s), 4 types (success/error/info/warning), animated slide-up
+
+### 🚀 Deployed
+- All changes pushed to GitHub, deployed to Netlify + Railway. Build clean (zero errors).
 
 ## Remaining
 1. Custom domain (`.netlify.app` subdomain kills trust — #1 priority)
