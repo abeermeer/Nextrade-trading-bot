@@ -2,14 +2,19 @@ import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { motion } from "framer-motion";
+import type { BotMode, TradeType, Signal } from "../types";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../hooks/useWebSocket";
+import { AppNavbar } from "../components/Navbar";
+import { Card, CardContent } from "../components/ui/Card";
+import { Badge } from "../components/ui/Badge";
+import { Table } from "../components/ui/Table";
+import { PlayIcon, StopIcon, WalletIcon } from "../components/Icons";
 import WalletConnect from "../components/WalletConnect";
-import type { BotMode, TradeType } from "../types";
-
 export default function Dashboard() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [showConfetti, setShowConfetti] = useState(false);
@@ -57,40 +62,29 @@ export default function Dashboard() {
   const botActive = botStatus?.bot_active ?? user?.bot_active ?? false;
   const hasKeys = botStatus?.has_mexc_keys ?? user?.has_mexc_keys ?? false;
 
+  const signalColumns = [
+    { key: "symbol", label: "Symbol", render: (s: Signal) => <span className="font-medium">{s.symbol}</span> },
+    {
+      key: "action", label: "Action",
+      render: (s: Signal) => <Badge variant={s.action as "buy" | "sell" | "hold"}>{s.action}</Badge>,
+    },
+    { key: "confidence", label: "Confidence", render: (s: Signal) => `${(s.confidence * 100).toFixed(0)}%` },
+    { key: "timeframe", label: "Timeframe", render: (s: Signal) => <span className="text-gray-400">{s.timeframe}</span> },
+    { key: "time", label: "Time", render: (s: Signal) => <span className="text-gray-500 text-xs">{new Date(s.timestamp).toLocaleTimeString()}</span> },
+  ];
+
   return (
     <div className="min-h-screen bg-dark-900">
-      {/* Top Nav */}
-      <nav className="border-b border-white/5 bg-dark-900/80 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-              <span className="text-dark-900 font-heading font-bold text-sm">N</span>
-            </div>
-            <span className="font-heading font-bold text-lg tracking-wider hidden sm:block">NexTrade AI</span>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-3 overflow-x-auto scrollbar-none">
-            <button onClick={() => navigate("/settings")} className="text-sm text-gray-400 hover:text-white px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Settings</button>
-            <button onClick={() => navigate("/positions")} className="text-sm text-gray-400 hover:text-white px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Positions</button>
-            <button onClick={() => navigate("/signals")} className="text-sm text-gray-400 hover:text-white px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Signals</button>
-            <button onClick={() => navigate("/trades")} className="text-sm text-gray-400 hover:text-white px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Trades</button>
-            {user?.is_admin && (
-              <button onClick={() => navigate("/admin")} className="text-sm text-yellow-400 hover:text-yellow-300 px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Admin</button>
-            )}
-            <span className="text-sm text-gray-500 hidden sm:block">{user?.email}</span>
-            <button onClick={logout} className="text-sm text-gray-500 hover:text-red-400 px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Logout</button>
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-2xl font-bold">Trading Dashboard</h1>
             <p className="text-gray-400 text-sm">Real-time bot status and performance</p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Spot/Futures toggle */}
             <div className="flex bg-dark-700 rounded-xl p-1 border border-white/5">
               {(["spot", "futures"] as const).map((t) => (
                 <button key={t} onClick={() => switchTradeType.mutate(t)}
@@ -104,7 +98,6 @@ export default function Dashboard() {
                 </button>
               ))}
             </div>
-            {/* Paper/Live toggle */}
             <div className="flex bg-dark-700 rounded-xl p-1 border border-white/5">
               {(["paper", "live"] as const).map((m) => (
                 <button key={m} onClick={() => switchMode.mutate(m)}
@@ -119,155 +112,175 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Bot Communication Visualization */}
-        <div className="bg-dark-700/50 border border-white/5 rounded-2xl p-8">
-          <div className="flex items-center justify-center gap-8 md:gap-16">
-            {/* Analyst */}
-            <div className="text-center">
-              <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center text-3xl mb-3 transition-all ${
-                analystAlive ? "bg-accent/20 border-2 border-accent shadow-lg shadow-accent/10" : "bg-dark-600 border border-white/10 opacity-50"
-              }`}>
-                🧠
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <Card className="p-8">
+            <div className="flex items-center justify-center gap-8 md:gap-16">
+              <div className="text-center">
+                <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-3 transition-all ${
+                  analystAlive ? "bg-accent/20 border-2 border-accent shadow-lg shadow-accent/10" : "bg-dark-600 border border-white/10 opacity-50"
+                }`}>
+                  <svg className="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke={analystAlive ? "#00d4aa" : "#6b7280"} strokeWidth="1.5">
+                    <path d="M12 3a3 3 0 0 0-3 3v.5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M12 21a3 3 0 0 0 3-3v-.5a3 3 0 0 0-6 0v.5a3 3 0 0 0 3 3Z" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M4.5 9.5a3 3 0 0 0 1.5 5.6 3 3 0 0 0 2.4-1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M19.5 9.5a3 3 0 0 1-1.5 5.6 3 3 0 0 1-2.4-1.2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 7.5a5 5 0 0 0 0 9" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M15 7.5a5 5 0 0 1 0 9" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="font-heading font-bold text-sm">Analyst</div>
+                <div className={`text-xs mt-1 ${analystAlive ? "text-accent" : "text-gray-500"}`}>
+                  {analystAlive ? "Active" : "Offline"}
+                </div>
               </div>
-              <div className="font-heading font-bold text-sm">Analyst</div>
-              <div className={`text-xs mt-1 ${analystAlive ? "text-accent" : "text-gray-500"}`}>
-                {analystAlive ? "🟢 Active" : "🔴 Offline"}
+
+              <div className="flex-1 max-w-48 relative">
+                <div className="h-0.5 bg-gradient-to-r from-accent via-blue-accent to-green-500 mt-10" />
+                <div className={`absolute -top-1 left-1/2 -translate-x-1/2 transition-all ${botActive ? "opacity-100" : "opacity-30"}`}>
+                  <svg className={`w-6 h-6 ${botActive ? "text-yellow-400 animate-pulse" : "text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M13 2L4 14h6l-1 8 10-12h-6l1-8Z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="text-center text-xs text-gray-500 mt-2">
+                  {botActive ? "Trading Live" : "Idle"}
+                </div>
+              </div>
+
+              <div className="text-center">
+                <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center mb-3 transition-all ${
+                  traderAlive ? "bg-green-500/20 border-2 border-green-500 shadow-lg shadow-green-500/10" : "bg-dark-600 border border-white/10 opacity-50"
+                }`}>
+                  <svg className="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke={traderAlive ? "#22c55e" : "#6b7280"} strokeWidth="1.5">
+                    <rect x="3" y="8" width="18" height="13" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 12h6" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M9 16h6" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M12 2v3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M8 5h8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="font-heading font-bold text-sm">Trader</div>
+                <div className={`text-xs mt-1 ${traderAlive ? "text-green-400" : "text-gray-500"}`}>
+                  {traderAlive ? "Active" : "Offline"}
+                </div>
               </div>
             </div>
 
-            {/* Arrows */}
-            <div className="flex-1 max-w-48 relative">
-              <div className="h-0.5 bg-gradient-to-r from-accent via-blue-accent to-green-500 mt-10" />
-              <div className={`absolute -top-1 left-1/2 -translate-x-1/2 text-2xl transition-all ${
-                botActive ? "opacity-100 animate-pulse" : "opacity-30"
-              }`}>
-                ⚡
-              </div>
-              <div className="text-center text-xs text-gray-500 mt-2">
-                {botActive ? "Trading Live" : "Idle"}
-              </div>
+            <div className="text-center mt-8">
+              {!hasKeys && (
+                <p className="text-yellow-400 text-sm mb-3">Set your MEXC API keys in Settings first</p>
+              )}
+              <button
+                onClick={() => botActive ? stopBot.mutate() : startBot.mutate()}
+                disabled={!hasKeys || startBot.isPending || stopBot.isPending}
+                className={`inline-flex items-center gap-2 px-10 py-3.5 rounded-xl font-bold text-lg transition-all ${
+                  botActive
+                    ? "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20"
+                    : "bg-accent hover:bg-accent-dark text-dark-900 shadow-lg shadow-accent/20"
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                {startBot.isPending || stopBot.isPending ? (
+                  "..."
+                ) : botActive ? (
+                  <><StopIcon className="w-5 h-5" /> Stop Bot</>
+                ) : (
+                  <><PlayIcon className="w-5 h-5" /> Start Bot</>
+                )}
+              </button>
             </div>
-
-            {/* Trader */}
-            <div className="text-center">
-              <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center text-3xl mb-3 transition-all ${
-                traderAlive ? "bg-green-500/20 border-2 border-green-500 shadow-lg shadow-green-500/10" : "bg-dark-600 border border-white/10 opacity-50"
-              }`}>
-                🤖
-              </div>
-              <div className="font-heading font-bold text-sm">Trader</div>
-              <div className={`text-xs mt-1 ${traderAlive ? "text-green-400" : "text-gray-500"}`}>
-                {traderAlive ? "🟢 Active" : "🔴 Offline"}
-              </div>
-            </div>
-          </div>
-
-          {/* Start/Stop Button */}
-          <div className="text-center mt-8">
-            {!hasKeys && (
-              <p className="text-yellow-400 text-sm mb-3">⚠️ Set your MEXC API keys in Settings first</p>
-            )}
-            <button
-              onClick={() => botActive ? stopBot.mutate() : startBot.mutate()}
-              disabled={!hasKeys || startBot.isPending || stopBot.isPending}
-              className={`px-10 py-3.5 rounded-xl font-bold text-lg transition-all ${
-                botActive
-                  ? "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20"
-                  : "bg-accent hover:bg-accent-dark text-dark-900 shadow-lg shadow-accent/20"
-              } disabled:opacity-40 disabled:cursor-not-allowed`}
-            >
-              {startBot.isPending || stopBot.isPending ? "..." : botActive ? "⏹ Stop Bot" : "▶ Start Bot"}
-            </button>
-          </div>
-        </div>
+          </Card>
+        </motion.div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Total P&L" value={`$${totalPnl.toFixed(2)}`} color={totalPnl >= 0 ? "text-accent" : "text-red-400"} />
-          <StatCard label="Win Rate" value={performance ? `${performance.win_rate}%` : "—"} />
-          <StatCard label="Total Trades" value={performance?.total_trades ?? 0} />
-          <StatCard label="Open Positions" value={positions?.length ?? 0} />
-        </div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        >
+          <Card>
+            <CardContent>
+              <div className="text-sm text-gray-400 mb-1">Total P&L</div>
+              <div className={`font-heading text-2xl font-bold ${totalPnl >= 0 ? "text-accent" : "text-red-400"}`}>
+                ${totalPnl.toFixed(2)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <div className="text-sm text-gray-400 mb-1">Win Rate</div>
+              <div className="font-heading text-2xl font-bold">{performance ? `${performance.win_rate}%` : "—"}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <div className="text-sm text-gray-400 mb-1">Total Trades</div>
+              <div className="font-heading text-2xl font-bold">{performance?.total_trades ?? 0}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <div className="text-sm text-gray-400 mb-1">Open Positions</div>
+              <div className="font-heading text-2xl font-bold">{positions?.length ?? 0}</div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Wallet Status */}
-        <div className="bg-dark-700/50 border border-white/5 rounded-2xl p-5 flex items-center justify-between">
-          <div>
-            <h3 className="font-heading font-bold text-sm">Crypto Wallet</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Connect for auth, payments & payouts</p>
-          </div>
-          <WalletConnect />
-        </div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <Card className="p-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                <WalletIcon className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <h3 className="font-heading font-bold text-sm">Crypto Wallet</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Connect for auth, payments & payouts</p>
+              </div>
+            </div>
+            <WalletConnect />
+          </Card>
+        </motion.div>
 
         {/* Equity Curve */}
-        <div className="bg-dark-700/50 border border-white/5 rounded-2xl p-6">
-          <h2 className="font-heading text-lg font-bold mb-4">Equity Curve</h2>
-          {performance?.equity_curve && performance.equity_curve.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={performance.equity_curve}>
-                <defs>
-                  <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(v) => new Date(v).toLocaleDateString()} />
-                <YAxis domain={["dataMin - 100", "dataMax + 100"]} tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(v) => `$${v.toLocaleString()}`} />
-                <Tooltip contentStyle={{ background: "#1c1c2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff" }} labelFormatter={(v) => new Date(v).toLocaleString()} />
-                <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fill="url(#eqGrad)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="text-center text-gray-500 py-8">No trade history yet</div>
-          )}
-        </div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Card className="p-6">
+            <h2 className="font-heading text-lg font-bold mb-4">Equity Curve</h2>
+            {performance?.equity_curve && performance.equity_curve.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={performance.equity_curve}>
+                  <defs>
+                    <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(v) => new Date(v).toLocaleDateString()} />
+                  <YAxis domain={["dataMin - 100", "dataMax + 100"]} tick={{ fill: "#6b7280", fontSize: 11 }} tickFormatter={(v) => `$${v.toLocaleString()}`} />
+                  <Tooltip contentStyle={{ background: "#1c1c2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff" }} labelFormatter={(v) => new Date(v).toLocaleString()} />
+                  <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fill="url(#eqGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center text-gray-500 py-8">No trade history yet</div>
+            )}
+          </Card>
+        </motion.div>
 
         {/* Signals Preview */}
-        <div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-heading text-lg font-bold">Latest Signals</h2>
             <button onClick={() => navigate("/signals")} className="text-sm text-accent hover:underline">View All</button>
           </div>
-          <div className="bg-dark-700/50 border border-white/5 rounded-2xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/5 text-gray-400 text-xs uppercase tracking-wider">
-                  <th className="text-left px-6 py-4 font-medium">Symbol</th>
-                  <th className="text-left px-6 py-4 font-medium">Action</th>
-                  <th className="text-left px-6 py-4 font-medium">Confidence</th>
-                  <th className="text-left px-6 py-4 font-medium">Timeframe</th>
-                  <th className="text-left px-6 py-4 font-medium">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {signals?.slice(0, 5).map((s, i) => (
-                  <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/5">
-                    <td className="px-6 py-4 font-medium">{s.symbol}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${
-                        s.action === "buy" ? "bg-green-500/20 text-green-400" :
-                        s.action === "sell" ? "bg-red-500/20 text-red-400" :
-                        "bg-gray-500/20 text-gray-400"
-                      }`}>{s.action}</span>
-                    </td>
-                    <td className="px-6 py-4">{(s.confidence * 100).toFixed(0)}%</td>
-                    <td className="px-6 py-4 text-gray-400">{s.timeframe}</td>
-                    <td className="px-6 py-4 text-gray-500 text-xs">{new Date(s.timestamp).toLocaleTimeString()}</td>
-                  </tr>
-                ))}
-                {(!signals || signals.length === 0) && (
-                  <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No signals yet. Start the bot to generate signals.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          <Card>
+            <Table columns={signalColumns} data={signals?.slice(0, 5) || []} emptyMessage="No signals yet. Start the bot to generate signals." />
+          </Card>
+        </motion.div>
 
         {/* Bot Logs */}
-        <div>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <h2 className="font-heading text-lg font-bold mb-4">Bot Logs</h2>
-          <div className="bg-dark-700/50 border border-white/5 rounded-2xl overflow-hidden max-h-64 overflow-y-auto">
+          <Card className="max-h-64 overflow-y-auto">
             {botLogs && botLogs.length > 0 ? (
               <div className="p-4 space-y-1.5 font-mono text-xs">
                 {botLogs.map((log, i) => (
@@ -280,25 +293,15 @@ export default function Dashboard() {
             ) : (
               <div className="text-center text-gray-500 py-8">No logs yet</div>
             )}
-          </div>
-        </div>
+          </Card>
+        </motion.div>
 
-        {/* Confetti effect */}
         {showConfetti && (
           <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
-            <div className="text-6xl animate-bounce">🚀</div>
+            <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.2, 1] }} transition={{ duration: 0.5 }} className="text-6xl">🚀</motion.div>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, color = "text-white" }: { label: string; value: string | number; color?: string }) {
-  return (
-    <div className="bg-dark-700/50 border border-white/5 rounded-2xl p-5">
-      <div className="text-sm text-gray-400 mb-1">{label}</div>
-      <div className={`font-heading text-2xl font-bold ${color}`}>{value}</div>
     </div>
   );
 }

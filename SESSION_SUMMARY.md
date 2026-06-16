@@ -59,7 +59,19 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
   - DB: `WithdrawalWhitelistRecord` table + `withdrawal_delay_hours` on UserRecord
   - Backend: `withdrawal_router.py` — 7 endpoints (whitelist CRUD, settings, admin approve/pending)
   - Frontend: Settings page "Withdrawal Protection" section (add/delete addresses, delay setting); Admin page approval table
-- **64 tests still passing**, frontend builds clean
+- **Frontend Design Overhaul (6/10 → 8/10)**:
+  - **20 SVG icons** replacing all emojis — `BrainIcon`, `BotIcon`, `LightningIcon`, `ChartIcon`, `ShieldIcon`, `KeyIcon`, etc.
+  - **Shared `AppNavbar`** extracted from 9 duplicated copies into single component with mobile hamburger menu
+  - **framer-motion** for page transitions (`AnimatePresence` in App.tsx), scroll-triggered reveals (`whileInView`), and micro-animations on cards
+  - **Animated `HeroIllustration`** — candlestick chart animation + animated line chart overlay + floating stat cards (87%, 24/7)
+  - **Refined design tokens** — `dark-950` background, consistent `accent-soft` color, cleaned up unused CSS
+  - **Polished UI components** — `Card`, `Badge` (10 variants), `Table<T>` (typed generic columns), `PageTransition` wrapper
+  - Auth pages (Login, Signup, VerifyEmail, ForgotPassword, ResetPassword) now use framer-motion form animations
+  - Landing page: emoji → SVG icons in features/trust/how-it-works sections, `HeroIllustration` replaces terminal sim
+  - Dashboard: SVG brain/bot/lightning icons replace emojis, `Badge`/`Table` components, framer-motion entrance animations
+  - Settings: SVG icons for each section header, `Card` wrapper, framer-motion stagger
+  - Admin/Positions/Signals/Trades: `AppNavbar` + `PageTransition` + `Badge` + `Table` components
+- **64 tests still passing**, frontend builds clean (zero errors)
 
 ## Remaining
 1. Stripe/PayPal payment integration + checkout flow

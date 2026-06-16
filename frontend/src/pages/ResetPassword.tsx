@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { api } from "../api/client";
 
 export default function ResetPassword() {
@@ -54,7 +55,7 @@ export default function ResetPassword() {
         </div>
 
         {success ? (
-          <div className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 text-center space-y-4">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 text-center space-y-4">
             <div className="w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center mx-auto">
               <span className="text-green-400 text-2xl">✓</span>
             </div>
@@ -62,9 +63,9 @@ export default function ResetPassword() {
             <Link to="/login" className="inline-block bg-accent hover:bg-accent-dark text-dark-900 font-bold px-6 py-2.5 rounded-xl transition-all">
               Go to Login
             </Link>
-          </div>
+          </motion.div>
         ) : (
-          <form onSubmit={handleSubmit} className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 space-y-5">
+          <motion.form initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleSubmit} className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 space-y-5">
             {error && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm px-4 py-3 rounded-lg">
                 {error}
@@ -105,7 +106,7 @@ export default function ResetPassword() {
               Remember your password?{" "}
               <Link to="/login" className="text-accent hover:underline">Sign in</Link>
             </p>
-          </form>
+          </motion.form>
         )}
       </div>
     </div>

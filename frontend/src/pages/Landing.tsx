@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
+import { HeroIllustration } from "../components/HeroIllustration";
+import { LightningIcon, ChartIcon, ShieldIcon, KeyIcon, BrainIcon, BotIcon, EyeIcon, FlaskIcon, ClockIcon } from "../components/Icons";
 
 const plans = [
   {
@@ -136,45 +139,7 @@ export default function Landing() {
 
             {/* Right — Visual */}
             <div className="hidden lg:flex items-center justify-center animate-slide-up delay-300">
-              <div className="relative">
-                <div className="w-[380px] h-[380px] rounded-3xl bg-gradient-to-br from-accent/10 via-blue-accent/5 to-transparent border border-white/[0.06] p-6 backdrop-blur-sm relative">
-                  <div className="absolute -top-4 -right-4 w-20 h-20 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center text-3xl animate-float">
-                    📈
-                  </div>
-                  <div className="absolute -bottom-3 -left-3 w-16 h-16 rounded-2xl bg-blue-accent/10 border border-blue-accent/20 flex items-center justify-center text-2xl animate-float" style={{ animationDelay: "2s" }}>
-                    🧠
-                  </div>
-                  {/* Terminal simulation */}
-                  <div className="bg-[#07070d]/80 rounded-xl p-4 font-mono text-xs space-y-2 border border-white/[0.04]">
-                    <div className="flex items-center gap-1.5 mb-3">
-                      <div className="w-2 h-2 rounded-full bg-red-400/80" />
-                      <div className="w-2 h-2 rounded-full bg-yellow-400/80" />
-                      <div className="w-2 h-2 rounded-full bg-green-400/80" />
-                    </div>
-                    {[
-                      { color: "text-accent", text: "$ analyst scan --pairs BTC/USDT,ETH/USDT" },
-                      { color: "text-blue-400", text: "  → RSI: oversold (24.3) ✓" },
-                      { color: "text-blue-400", text: "  → MACD: bullish cross ✓" },
-                      { color: "text-blue-400", text: "  → Volume: breakout detected ✓" },
-                      { color: "text-yellow-400", text: "  ⚡ Signal: BUY BTC/USDT (conf: 87%)" },
-                      { color: "text-green-400", text: "$ trader execute --signal buy --size 0.5" },
-                      { color: "text-gray-500", text: "  Order filled @ $67,432.00" },
-                      { color: "text-gray-500", text: "  SL: $66,430 | TP: $70,803" },
-                    ].map((line, i) => (
-                      <div key={i} className={line.color}>{line.text}</div>
-                    ))}
-                  </div>
-                </div>
-                {/* Floating stats */}
-                <div className="absolute -right-12 top-12 bg-dark-800/80 backdrop-blur-xl border border-white/[0.06] rounded-xl p-3 text-center">
-                  <div className="text-accent font-heading text-lg font-bold">87%</div>
-                  <div className="text-[10px] text-gray-500">Win Rate</div>
-                </div>
-                <div className="absolute -left-8 bottom-16 bg-dark-800/80 backdrop-blur-xl border border-white/[0.06] rounded-xl p-3 text-center">
-                  <div className="text-accent font-heading text-lg font-bold">24/7</div>
-                  <div className="text-[10px] text-gray-500">Automated</div>
-                </div>
-              </div>
+              <HeroIllustration />
             </div>
           </div>
         </div>
@@ -191,37 +156,37 @@ export default function Landing() {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                step: "01",
-                icon: "🔗",
+                step: "01", Icon: KeyIcon,
                 title: "Connect Your Exchange",
                 desc: "Link your MEXC account with restricted API keys. Your funds stay on the exchange — we only execute trades you authorize.",
               },
               {
-                step: "02",
-                icon: "⚡",
+                step: "02", Icon: LightningIcon,
                 title: "Activate the AI",
                 desc: "Choose spot or futures, set your risk parameters, and start the bot. The analyst scans 8 strategies, the trader executes with precision.",
               },
               {
-                step: "03",
-                icon: "📈",
+                step: "03", Icon: ChartIcon,
                 title: "Watch & Withdraw",
                 desc: "Monitor performance on your live dashboard. Track P&L, open positions, and trade history. Withdraw profits anytime.",
               },
             ].map((item, i) => (
-              <div key={i} className="relative group">
+              <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.15 }}
+                className="relative group"
+              >
                 <div className="absolute inset-0 bg-gradient-to-b from-accent/[0.03] to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative bg-dark-800/40 border border-white/[0.06] rounded-3xl p-8 backdrop-blur-sm hover:border-accent/20 transition-all">
-                  <div className="text-5xl mb-6">{item.icon}</div>
+                  <div className="w-14 h-14 mb-6 rounded-2xl bg-accent/10 flex items-center justify-center">
+                    <item.Icon className="w-7 h-7 text-accent" />
+                  </div>
                   <div className="text-accent/40 font-heading text-sm tracking-[0.15em] mb-2">{item.step}</div>
                   <h3 className="font-heading text-lg font-bold mb-3">{item.title}</h3>
                   <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
                 </div>
-                {/* Connector line */}
                 {i < 2 && (
                   <div className="hidden md:block absolute top-1/2 -right-5 w-10 h-px bg-gradient-to-r from-accent/40 to-transparent" />
                 )}
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -238,21 +203,25 @@ export default function Landing() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: "🧠", title: "8 AI Strategies", desc: "RSI, MACD, EMA, Bollinger, Volume, Supertrend, ADX, Ichimoku — diversified across timeframes", color: "from-accent/20 to-transparent" },
-              { icon: "🤖", title: "Auto-Pilot 24/7", desc: "Analyst + Trader communicate via Redis. Click start and they work around the clock", color: "from-blue-accent/20 to-transparent" },
-              { icon: "🛡️", title: "Risk-First Design", desc: "Circuit breaker, daily drawdown limits, trailing stop-loss, and cooldown protection", color: "from-green-500/20 to-transparent" },
-              { icon: "📊", title: "Live Dashboard", desc: "Real-time P&L, equity curve chart, open positions, signal history, and bot logs", color: "from-accent/20 to-transparent" },
-              { icon: "🔄", title: "Spot & Futures", desc: "Trade both markets with full leverage control. Set leverage per symbol", color: "from-blue-accent/20 to-transparent" },
-              { icon: "🔐", title: "Self-Custody", desc: "Your keys, your coins. We never hold your funds. All API keys encrypted with AES-256", color: "from-purple-500/20 to-transparent" },
+              { Icon: BrainIcon, title: "8 AI Strategies", desc: "RSI, MACD, EMA, Bollinger, Volume, Supertrend, ADX, Ichimoku — diversified across timeframes", color: "from-accent/20 to-transparent" },
+              { Icon: BotIcon, title: "Auto-Pilot 24/7", desc: "Analyst + Trader communicate via Redis. Click start and they work around the clock", color: "from-blue-accent/20 to-transparent" },
+              { Icon: ShieldIcon, title: "Risk-First Design", desc: "Circuit breaker, daily drawdown limits, trailing stop-loss, and cooldown protection", color: "from-green-500/20 to-transparent" },
+              { Icon: ChartIcon, title: "Live Dashboard", desc: "Real-time P&L, equity curve chart, open positions, signal history, and bot logs", color: "from-accent/20 to-transparent" },
+              { Icon: LightningIcon, title: "Spot & Futures", desc: "Trade both markets with full leverage control. Set leverage per symbol", color: "from-blue-accent/20 to-transparent" },
+              { Icon: KeyIcon, title: "Self-Custody", desc: "Your keys, your coins. We never hold your funds. All API keys encrypted with AES-256", color: "from-purple-500/20 to-transparent" },
             ].map((f, i) => (
-              <div key={i} className="group relative bg-dark-800/30 border border-white/[0.06] rounded-2xl p-6 hover:border-accent/20 transition-all overflow-hidden">
+              <motion.div key={i} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.08 }}
+                className="group relative bg-dark-800/30 border border-white/[0.06] rounded-2xl p-6 hover:border-accent/20 transition-all overflow-hidden"
+              >
                 <div className={`absolute inset-0 bg-gradient-to-b ${f.color} opacity-0 group-hover:opacity-100 transition-opacity`} />
                 <div className="relative">
-                  <div className="text-3xl mb-4">{f.icon}</div>
+                  <div className="w-10 h-10 mb-4 rounded-xl bg-accent/10 flex items-center justify-center">
+                    <f.Icon className="w-5 h-5 text-accent" />
+                  </div>
                   <h3 className="font-heading font-bold text-base mb-2">{f.title}</h3>
                   <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -268,42 +237,22 @@ export default function Landing() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                icon: "🔒",
-                title: "Encrypted by Default",
-                desc: "All MEXC API keys are encrypted at rest using Fernet AES-256. We never log or expose your credentials.",
-              },
-              {
-                icon: "🪪",
-                title: "No Custody",
-                desc: "We never hold your funds. You connect with restricted API keys that can trade but cannot withdraw.",
-              },
-              {
-                icon: "📋",
-                title: "Fully Transparent",
-                desc: "Every trade, signal, and position is visible in real-time on your dashboard. No black boxes.",
-              },
-              {
-                icon: "🧪",
-                title: "Paper Trading First",
-                desc: "Test every strategy risk-free with paper mode. Only go live when you're confident in the performance.",
-              },
-              {
-                icon: "⚡",
-                title: "Real-Time Monitoring",
-                desc: "Analyst and trader heartbeats monitored via Redis every 15 seconds. Downtime alerts are instant.",
-              },
-              {
-                icon: "🛡️",
-                title: "Risk Safeguards",
-                desc: "Circuit breaker stops trading at 10% drawdown. Daily loss limits and cooldown periods prevent cascade failures.",
-              },
+              { Icon: ShieldIcon, title: "Encrypted by Default", desc: "All MEXC API keys are encrypted at rest using Fernet AES-256. We never log or expose your credentials." },
+              { Icon: KeyIcon, title: "No Custody", desc: "We never hold your funds. You connect with restricted API keys that can trade but cannot withdraw." },
+              { Icon: EyeIcon, title: "Fully Transparent", desc: "Every trade, signal, and position is visible in real-time on your dashboard. No black boxes." },
+              { Icon: FlaskIcon, title: "Paper Trading First", desc: "Test every strategy risk-free with paper mode. Only go live when you're confident in the performance." },
+              { Icon: ClockIcon, title: "Real-Time Monitoring", desc: "Analyst and trader heartbeats monitored via Redis every 15 seconds. Downtime alerts are instant." },
+              { Icon: ShieldIcon, title: "Risk Safeguards", desc: "Circuit breaker stops trading at 10% drawdown. Daily loss limits and cooldown periods prevent cascade failures." },
             ].map((item, i) => (
-              <div key={i} className="bg-dark-800/30 border border-white/[0.06] rounded-2xl p-6 hover:border-accent/20 transition-all">
-                <div className="text-2xl mb-3">{item.icon}</div>
+              <motion.div key={i} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.06 }}
+                className="bg-dark-800/30 border border-white/[0.06] rounded-2xl p-6 hover:border-accent/20 transition-all"
+              >
+                <div className="w-10 h-10 mb-3 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <item.Icon className="w-5 h-5 text-accent" />
+                </div>
                 <h3 className="font-heading font-bold text-sm mb-2">{item.title}</h3>
                 <p className="text-gray-400 text-xs leading-relaxed">{item.desc}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>

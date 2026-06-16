@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { api } from "../api/client";
 
 export default function VerifyEmail() {
@@ -39,7 +40,7 @@ export default function VerifyEmail() {
           <h1 className="font-heading text-2xl font-bold">Email Verification</h1>
         </div>
 
-        <div className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 text-center">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 text-center">
           {status === "loading" && (
             <div className="space-y-4">
               <div className="animate-spin w-8 h-8 border-2 border-accent border-t-transparent rounded-full mx-auto" />
@@ -68,7 +69,7 @@ export default function VerifyEmail() {
               </Link>
             </div>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

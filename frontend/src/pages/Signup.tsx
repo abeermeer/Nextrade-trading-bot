@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
 
 export default function Signup() {
   const { register } = useAuth();
@@ -40,7 +41,7 @@ export default function Signup() {
           <p className="text-gray-400 text-sm mt-1">Start your automated trading journey</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 space-y-5">
+        <motion.form initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleSubmit} className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 space-y-5">
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm px-4 py-3 rounded-lg">
               {error}
@@ -92,7 +93,7 @@ export default function Signup() {
             Already have an account?{" "}
             <Link to="/login" className="text-accent hover:underline">Sign in</Link>
           </p>
-        </form>
+        </motion.form>
       </div>
     </div>
   );

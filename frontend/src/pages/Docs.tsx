@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
+import { AppNavbar } from "../components/Navbar";
 
 const sections = [
   {
@@ -41,37 +41,9 @@ const sections = [
 ];
 
 export default function Docs() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
   return (
     <div className="min-h-screen bg-dark-900">
-      {/* Top Nav */}
-      <nav className="border-b border-white/5 bg-dark-900/80 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-              <span className="text-dark-900 font-heading font-bold text-sm">N</span>
-            </div>
-            <span className="font-heading font-bold text-lg tracking-wider hidden sm:block">NexTrade AI</span>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-3 overflow-x-auto scrollbar-none">
-            {user ? (
-              <>
-                <button onClick={() => navigate("/dashboard")} className="text-sm text-gray-400 hover:text-white px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Dashboard</button>
-                <button onClick={() => navigate("/settings")} className="text-sm text-gray-400 hover:text-white px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Settings</button>
-                <span className="text-sm text-gray-500 hidden sm:block">{user?.email}</span>
-                <button onClick={logout} className="text-sm text-gray-500 hover:text-red-400 px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Logout</button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => navigate("/login")} className="text-sm text-gray-400 hover:text-white px-2 sm:px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">Sign In</button>
-                <button onClick={() => navigate("/signup")} className="text-sm bg-accent hover:bg-accent-dark text-dark-900 px-4 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap">Get Started</button>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
+      <AppNavbar />
 
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="text-center mb-16">
@@ -88,10 +60,10 @@ export default function Docs() {
               </div>
               <div className="space-y-4">
                 {section.items.map((item) => (
-                  <div key={item.q} className="bg-dark-800/40 border border-white/[0.06] rounded-2xl p-6 hover:border-accent/20 transition-all">
+                  <motion.div key={item.q} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="bg-dark-800/40 border border-white/[0.06] rounded-2xl p-6 hover:border-accent/20 transition-all">
                     <h3 className="font-heading font-bold text-sm mb-3">{item.q}</h3>
                     <p className="text-gray-400 text-sm leading-relaxed whitespace-pre-line">{item.a}</p>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
