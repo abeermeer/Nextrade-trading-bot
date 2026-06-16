@@ -78,6 +78,8 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 - **Mobile polish** — Hamburger menu, touch targets, responsive columns, toast centering
 - **Docker Desktop** — Started daemon, built backend image, verified health
 - **Triple-platform deploy** — Committed + pushed to GitHub (`730281b`), deployed frontend to Netlify (build + live), deployed backend to Railway (all 3 services online). Fixed `Badge` variant `info`→`success` in Backtesting TSX.
+- **README + GitHub metadata update** — Updated README for multi-exchange (MEXC/Binance/Bybit): overview, architecture, features, API endpoints, project structure, prerequisites. Updated GitHub description and added `binance`, `bybit`, `multi-exchange` topics. Pushed `0a5fabf`.
+- **Frontend test fixes** — Fixed `Router-in-Router` error (removed extra BrowserRouter wrapper), fixed lazy-loaded landing page test (`findByText` → `findAllByText`), added IntersectionObserver polyfill for jsdom. Pushed `79a8d2e`.
 
 ## Remaining
 1. Custom domain (once purchased)
