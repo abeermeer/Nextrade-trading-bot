@@ -8,6 +8,8 @@ from analyst.strategies import (
     SupertrendStrategy,
     ADXStrategy,
     IchimokuStrategy,
+    PullbackStrategy,
+    RangeStrategy,
 )
 from shared.models import StrategyResult
 from shared.logger import get_logger
@@ -23,6 +25,8 @@ STRATEGY_MAP = {
     "supertrend": SupertrendStrategy,
     "adx": ADXStrategy,
     "ichimoku": IchimokuStrategy,
+    "pullback": PullbackStrategy,
+    "range": RangeStrategy,
 }
 
 

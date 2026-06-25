@@ -60,6 +60,24 @@ strategies:
       senkou_span_b_period: 52
       displacement: 26
 
+  pullback:
+    enabled: true
+    weight: 0.10
+    params:
+      lookback: 20
+      sideways_entry_pct: 20
+      bear_entry_pct: 30
+      reentry_pct: 10
+
+  range:
+    enabled: true
+    weight: 0.10
+    params:
+      lookback: 30
+      range_threshold: 0.10
+      oversold_pct: 20
+      overbought_pct: 80
+
 signal_resolution:
   mode: weighted  # weighted | strict | majority
   confidence_threshold: 0.5

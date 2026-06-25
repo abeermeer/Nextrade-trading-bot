@@ -57,6 +57,16 @@ def strategies_config() -> dict:
                 "weight": 0.15,
                 "params": {"period": 20, "std_dev": 2, "squeeze_threshold": 0.05},
             },
+            "pullback": {
+                "enabled": True,
+                "weight": 0.10,
+                "params": {"lookback": 20, "sideways_entry_pct": 20, "bear_entry_pct": 30, "reentry_pct": 10},
+            },
+            "range": {
+                "enabled": True,
+                "weight": 0.10,
+                "params": {"lookback": 30, "range_threshold": 0.10, "oversold_pct": 20, "overbought_pct": 80},
+            },
         },
         "signal_resolution": {
             "mode": "weighted",

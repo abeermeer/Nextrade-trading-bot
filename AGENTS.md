@@ -19,8 +19,8 @@
 - Admin: abeermeer7979@gmail.com / Abeer@123
 - JWT Bearer tokens, bcrypt passwords, Fernet AES-256 key encryption
 
-## Strategies (8)
-RSI, MACD cross, EMA trend, Volume breakout, Bollinger squeeze, Supertrend, ADX, Ichimoku
+## Strategies (10)
+RSI, MACD cross, EMA trend, Volume breakout, Bollinger squeeze, Supertrend, ADX, Ichimoku, Pullback, Range
 All in `analyst/strategies/` — simple BaseStrategy subclass, uses pandas_ta
 
 ## Key Rules

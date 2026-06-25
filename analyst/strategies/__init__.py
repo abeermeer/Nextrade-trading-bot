@@ -7,6 +7,8 @@ from analyst.strategies.bollinger_squeeze_strategy import BollingerSqueezeStrate
 from analyst.strategies.supertrend_strategy import SupertrendStrategy
 from analyst.strategies.adx_strategy import ADXStrategy
 from analyst.strategies.ichimoku_strategy import IchimokuStrategy
+from analyst.strategies.pullback_strategy import PullbackStrategy
+from analyst.strategies.range_strategy import RangeStrategy
 
 __all__ = [
     "BaseStrategy",
@@ -18,4 +20,6 @@ __all__ = [
     "SupertrendStrategy",
     "ADXStrategy",
     "IchimokuStrategy",
+    "PullbackStrategy",
+    "RangeStrategy",
 ]
