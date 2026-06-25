@@ -32,6 +32,7 @@ const Security = lazy(() => import("./pages/Security"));
 const StrategyPerformance = lazy(() => import("./pages/StrategyPerformance"));
 const Backtesting = lazy(() => import("./pages/Backtesting"));
 const Status = lazy(() => import("./pages/Status"));
+const Subscribe = lazy(() => import("./pages/Subscribe"));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchInterval: 5000, retry: 2 } },
@@ -79,6 +80,7 @@ function AnimatedRoutes() {
               <Route path="/changelog" element={<Changelog />} />
               <Route path="/security" element={<Security />} />
               <Route path="/status" element={<Status />} />
+              <Route path="/subscribe" element={<ProtectedRoute><Subscribe /></ProtectedRoute>} />
             </Routes>
           </Suspense>
         </ErrorBoundary>

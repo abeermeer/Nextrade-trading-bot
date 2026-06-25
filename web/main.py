@@ -17,6 +17,7 @@ from web.user_router import router as user_router
 from web.wallet_router import router as wallet_router
 from web.withdrawal_router import router as withdrawal_router
 from web.platform_router import router as platform_router
+from web.stripe_router import router as stripe_router
 from web.auth import decode_token
 from shared.redis_client import create_redis_client
 from shared.config_loader import ConfigLoader
@@ -27,8 +28,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         if path.startswith("/api/") and path not in ("/api/status", "/api/logs", "/health"):
             auth = request.headers.get("Authorization", "")
+            token = None
             if auth.startswith("Bearer "):
                 token = auth[7:]
+            elif "token" in request.query_params:
+                token = request.query_params["token"]
+            if token:
                 try:
                     payload = decode_token(token)
                     user_id = payload.get("user_id")
@@ -82,6 +87,7 @@ app.include_router(wallet_router)
 app.include_router(withdrawal_router)
 app.include_router(platform_router)
 app.include_router(user_router)
+app.include_router(stripe_router)
 app.include_router(router)
 
 

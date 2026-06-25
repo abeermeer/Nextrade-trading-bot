@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +8,7 @@ from web.auth import get_current_user, get_admin_user
 from shared.encryption import encrypt
 from shared.plan_limits import get_plan_limits, enforce_plan_limit
 from shared.redis_client import RedisClient
-from shared.wallet import make_nonce, build_siwe_message, verify_wallet_signature
+from shared.wallet import verify_wallet_signature
 from trader.exchange.factory import create_exchange
 
 router = APIRouter(prefix="/api/user")

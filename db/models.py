@@ -143,6 +143,8 @@ class UserRecord(Base):
     notification_prefs = Column(JSON, nullable=True)
     selected_pairs = Column(JSON, nullable=True)
     mexc_keys_verified = Column(Boolean, default=False)
+    stripe_customer_id = Column(String(255), nullable=True)
+    stripe_subscription_id = Column(String(255), nullable=True)
     usage_api_calls = Column(Integer, default=0)
     usage_bot_hours = Column(Float, default=0.0)
     usage_trade_volume = Column(Float, default=0.0)

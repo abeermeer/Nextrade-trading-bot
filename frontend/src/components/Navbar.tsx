@@ -17,6 +17,7 @@ export function AppNavbar() {
     { label: "Trades", path: "/trades", icon: TradeIcon },
     { label: "Strategies", path: "/strategy-performance", icon: BrainIcon },
     { label: "Backtest", path: "/backtesting", icon: LightningIcon },
+    { label: "Plan", path: "/subscribe", icon: LightningIcon },
     { label: "Settings", path: "/settings", icon: SettingsIcon },
     ...(user?.is_admin ? [
       { label: "Users", path: "/admin", icon: AdminIcon },

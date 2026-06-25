@@ -191,4 +191,13 @@ export const api = {
 
   // Usage
   usageStats: () => request<{ api_calls: number; bot_hours: number; trade_volume: number }>("/api/user/usage"),
+
+  // Stripe
+  createCheckoutSession: (plan: string) =>
+    request<{ url: string; session_id: string }>("/api/subscribe/create-checkout", {
+      method: "POST",
+      body: JSON.stringify({ plan }),
+    }),
+  getPortalUrl: () => request<{ url: string }>("/api/subscribe/portal"),
+  currentSubscription: () => request<{ plan: string; has_stripe_id: boolean }>("/api/subscribe/current"),
 };

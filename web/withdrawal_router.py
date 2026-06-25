@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -153,6 +153,6 @@ async def approve_whitelist(
     if not record:
         raise HTTPException(status_code=404, detail="Whitelist entry not found")
     record.is_approved = True
-    record.approved_at = datetime.utcnow()
+    record.approved_at = datetime.now(timezone.utc)
     await session.commit()
     return {"success": True}

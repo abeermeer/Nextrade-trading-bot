@@ -149,7 +149,7 @@ export default function Settings() {
         <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
           <div>
             <h1 className="font-heading text-2xl font-bold">Settings</h1>
-            <p className="text-gray-400 text-sm">Configure your bot and MEXC connection</p>
+            <p className="text-gray-400 text-sm">Configure your bot and exchange connection</p>
           </div>
 
           {/* Exchange API Keys */}

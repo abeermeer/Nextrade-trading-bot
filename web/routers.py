@@ -1,7 +1,6 @@
 import json
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession

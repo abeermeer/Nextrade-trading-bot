@@ -43,6 +43,12 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 ### 📝 Documentation
 8. **README fixes** — Architecture diagram updated ("Encrypted MEXC key storage" → "Encrypted exchange key storage"). `GET /api/auth/me` moved from Public to User Endpoints (requires auth). `user_router.py` description updated ("MEXC keys" → "exchange keys"). Removed stale `(18 endpoints)` count from `platform_router.py` description.
 
+### 🚀 Deployed
+- **GitHub**: `684efae` pushed to `abeeruniversity/mexc-trading-bot`
+- **Netlify**: Production deploy live at `mexc-trading-bot.netlify.app`
+- **Railway**: Backend redeployed, `/health` responding ✅
+- **GitHub metadata**: Description updated, topics: `algorithmic-trading`, `trading-bot`, `mexc`, `binance`, `bybit`, `fastapi`, `react`, `saas`
+
 ### ✅ Files Changed (15)
 - `web/user_router.py` — Removed 3 endpoints + MexcKeysRequest + unused `decrypt` import
 - `web/auth_router.py` — Added `keys_verified` to UserResponse, removed seed_admin function
@@ -58,9 +64,42 @@ Fully autonomous two-bot trading system (Market Analyst + Trader Bot) for MEXC s
 - `frontend/src/hooks/useWebSocket.ts` — Close code 4001 → redirect to login
 - `README.md` — 5 fixes (SLA, diagram, /me placement, descriptions)
 
+## Completed This Session (Jun 26 — QA Audit + Stripe Integration)
+
+### 🐛 Bugfixes
+1. **Dead code removed** — Orphaned `seed_admin` body after `return` in `auth_router.py:208+` deleted. Unused `init_db` import removed.
+2. **Unused imports cleaned** — `status`/`make_nonce`/`build_siwe_message` from `user_router.py`, `update` from `platform_router.py`, `Optional` from `routers.py` removed.
+3. **Timezone fix** — `withdrawal_router.py:156` changed `datetime.utcnow()` → `datetime.now(timezone.utc)` for consistency.
+
+### 🗣️ Stale copy
+4. **Dashboard** — "Set your MEXC API keys" → "exchange API keys"
+5. **Settings** — "Configure your bot and MEXC connection" → "exchange connection"
+
+### 🔐 Rate limiting
+6. **Query-param endpoints** — `RateLimitMiddleware` now also checks `request.query_params["token"]` for endpoints that pass token as query param instead of Bearer header.
+
+### 💳 Stripe Subscription Integration
+7. **Backend** — Created `web/stripe_router.py` with: `POST /api/subscribe/create-checkout`, `POST /api/subscribe/webhook`, `GET /api/subscribe/portal`, `GET /api/subscribe/current`. Stripe webhook handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` — auto-updates user plan in DB. Added `stripe_customer_id`/`stripe_subscription_id` to `UserRecord`. Registered router in `main.py`.
+8. **Frontend** — Created `/subscribe` page at `frontend/src/pages/Subscribe.tsx` with pricing cards (Basic $29/Pro $79/Enterprise $199), Stripe checkout redirect, and billing portal link. Added to `App.tsx` routes and navbar ("Plan" link). Updated `client.ts` with `createCheckoutSession`, `getPortalUrl`, `currentSubscription`.
+
+### ✅ Files Changed (13)
+- `web/auth_router.py` — Removed dead seed_admin code + unused `init_db` import
+- `web/user_router.py` — Removed unused imports
+- `web/platform_router.py` — Removed unused `update` import
+- `web/routers.py` — Removed unused `Optional` import
+- `web/withdrawal_router.py` — Fixed timezone-aware datetime
+- `web/main.py` — Added `stripe_router` import + register
+- `web/stripe_router.py` — New: Stripe checkout/webhook/portal endpoints
+- `db/models.py` — Added `stripe_customer_id`, `stripe_subscription_id` columns
+- `requirements.txt` — Added `stripe>=10.0`
+- `frontend/src/App.tsx` — Added `/subscribe` route
+- `frontend/src/components/Navbar.tsx` — Added "Plan" link
+- `frontend/src/pages/Subscribe.tsx` — New: pricing page with Stripe checkout
+- `frontend/src/api/client.ts` — Added stripe API methods
+
 ## Remaining
 1. Custom domain (once purchased)
-2. Stripe/PayPal integration (once account set up)
+2. **Stripe keys** — Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_*` env vars on Railway before subscription works
 
 ## Key Decisions
 - Three-platform split: Netlify (frontend), Railway (backend+DB+Redis), GitHub (code)

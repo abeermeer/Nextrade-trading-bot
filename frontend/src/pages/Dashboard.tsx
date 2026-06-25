@@ -174,7 +174,7 @@ export default function Dashboard() {
 
             <div className="text-center mt-8">
               {!hasKeys && (
-                <p className="text-yellow-400 text-sm mb-3">Set your MEXC API keys in Settings first</p>
+                <p className="text-yellow-400 text-sm mb-3">Set your exchange API keys in Settings first</p>
               )}
               <button
                 onClick={() => botActive ? stopBot.mutate() : startBot.mutate()}
