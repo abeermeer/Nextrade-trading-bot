@@ -11,15 +11,15 @@
 
 ## Overview
 
-NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC, Binance, and Bybit** exchanges. It features an autonomous market analyst that generates signals using 8 strategies, a multi-tenant trader that executes positions per user, and a full SaaS web dashboard with JWT authentication, encrypted API key storage, and plan-based access control.
+NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC, Binance, and Bybit** exchanges. It features an autonomous market analyst that generates signals using 15 strategies, a multi-tenant trader that executes positions per user, and a full SaaS web dashboard with JWT authentication, encrypted API key storage, and plan-based access control.
 
-**Live demo:** [mexc-trading-bot.netlify.app](https://mexc-trading-bot.netlify.app)
+**Live demo:** [dist-rho-sandy-41.vercel.app](https://dist-rho-sandy-41.vercel.app)
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Frontend (Netlify)                     │
+│                    Frontend (Vercel)                      │
 │  React 19 + Tailwind v4 + Recharts + React Query         │
 └────────────────────┬────────────────────────────────────┘
                      │ HTTPS / JWT
@@ -28,12 +28,13 @@ NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC
 │  FastAPI + SQLAlchemy async + Redis pub/sub               │
 │  JWT auth · Plan enforcement · Rate limiting              │
 │  Encrypted exchange key storage (Fernet AES-256)          │
+│  Stripe subscriptions · GDPR compliance                   │
 └──────┬──────────────────────────────┬───────────────────┘
        │ Redis pub/sub                │ Redis pub/sub
 ┌──────▼──────────┐          ┌───────▼───────────────────┐
 │  Analyst Bot    │          │     Trader Bot (Railway)   │
-│  · 8 strategies │ signals  │  · Multi-tenant sessions   │
-│  · Signal gen   │────────►  │    ·  Per-user exchange clients  │
+│  · 15 strategies│ signals  │  · Multi-tenant sessions   │
+│  · Signal gen   │────────► │  · Per-user exchange clients│
 │  · Heartbeat    │          │  · Paper + Live execution  │
 └─────────────────┘          │  · Risk management         │
                              │  · Position tracking        │
@@ -45,7 +46,7 @@ NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC
 
 | Service | Stack | Hosting |
 |---|---|---|
-| **Frontend** | React 19, TypeScript, Tailwind v4, Recharts | Netlify |
+| **Frontend** | React 19, TypeScript, Tailwind v4, Recharts | Vercel |
 | **Backend API** | FastAPI, SQLAlchemy (async), PostgreSQL, Redis | Railway |
 | **Analyst Bot** | Python, pandas_ta, ccxt, Redis pub/sub | Railway |
 | **Trader Bot** | Python, ccxt, Redis pub/sub, multi-tenant | Railway |
@@ -55,7 +56,8 @@ NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC
 ## Features
 
 ### Trading Engine
-- **8 strategies**: RSI, MACD cross, EMA trend, Volume breakout, Bollinger squeeze, Supertrend, ADX, Ichimoku
+- **15 strategies**: RSI, MACD cross, EMA trend, Volume breakout, Bollinger squeeze, Supertrend, ADX, Ichimoku, Pullback, Range, CounterTrend, StochRSI, PSAR, MFI, VWAP
+- **Paper/live signal thresholds**: paper needs 1 signal at 30% confidence, live needs 2 signals at 50% confidence
 - **Multi-timeframe analysis**: 15m, 1h, 4h with configurable signal resolution
 - **Paper trading** with realistic fill simulation (slippage, spread)
 - **Live trading** via MEXC, Binance, Bybit (spot + futures)
@@ -69,6 +71,7 @@ NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC
 - **Multi-exchange**: MEXC, Binance, Bybit via factory pattern with per-exchange client classes
 - **Encrypted API key storage**: Fernet AES-256 at rest
 - **Multi-tenant trader**: shared executor with per-user isolated sessions
+- **Stripe subscription management**: checkout, webhook, billing portal, plan sync
 - **Real-time bot control** via Redis pub/sub (no polling delay)
 - **Rate limiting**: token bucket per user (60 requests/min)
 - **Admin panel**: user management, plan overview, key status
@@ -110,7 +113,7 @@ NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC
 - **Real social proof**: Landing page displays live user count and total trades from DB
 - **Terms of Service** (`/terms`): 9 sections covering all legal terms — NexTrade AI Ltd., Larnaca, Cyprus
 - **Privacy Policy** (`/privacy`): AES-256 encryption, no data selling, encrypted API key storage
-- **Whitepaper** (`/whitepaper`): Deep-dive on all 8 strategies, architecture (Redis pub/sub), risk management
+- **Whitepaper** (`/whitepaper`): Deep-dive on all 15 strategies, architecture (Redis pub/sub), risk management
 - **Security** (`/security`): 8 sections — AES-256, zero-knowledge, multi-tenant isolation, circuit breaker
 - **Changelog** (`/changelog`): Release timeline (v1.0.0 → v1.2.0)
 - **About** (`/about`): Company info, development timeline, team, architecture overview
@@ -214,6 +217,10 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 | POST | `/api/auth/reset-password` | Reset password with token |
 | GET | `/verify-email` | Verify email with token |
 | GET | `/api/stats` | Live platform stats (user count, total trades, win rate) |
+| POST | `/api/subscribe/create-checkout` | Create Stripe checkout session (requires auth) |
+| POST | `/api/subscribe/webhook` | Stripe webhook — sync subscription changes |
+| GET | `/api/subscribe/portal` | Get Stripe billing portal URL |
+| GET | `/api/subscribe/current` | Get current subscription + available plans |
 
 ### User Endpoints (authenticated)
 | Method | Path | Description |
@@ -268,7 +275,7 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 ```
 ├── analyst/                 # Market analyst — signal generation
 │   ├── analyst_bot.py       # Main loop, strategy orchestration
-│   └── strategies/          # 8 strategy implementations
+│   └── strategies/          # 15 strategy implementations
 ├── backtest/                # Backtesting framework
 ├── config/                  # YAML configuration files
 │   ├── settings.yaml        # Bot/trader/analyst/redis config
@@ -309,6 +316,7 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 │   ├── withdrawal_router.py # Withdrawal whitelist CRUD + admin approval
 │   ├── user_router.py       # User settings, exchange keys, bot control, admin
 │   ├── platform_router.py   # Strategy perf, portfolio, CSV, GDPR, pairs, notifs, API keys, analytics, trial, backtest, usage
+│   ├── main.py              # Stripe checkout, webhook, portal, current
 │   └── routers.py           # Status, signals, positions, trades, logs, stats
 ├── docker-compose.yml       # Local dev setup
 ├── Dockerfile.web            # Backend container
@@ -334,10 +342,10 @@ The system is designed for a three-platform deployment:
 
 | Component | Platform | Deployment |
 |---|---|---|
-| Frontend | **Netlify** | Auto-deploys from GitHub on push |
-| Backend API | **Railway** | `railway up --service mexc-trading-bot` |
-| Analyst Bot | **Railway** | `railway up --service analyst` |
-| Trader Bot | **Railway** | `railway up --service trader` |
+| Frontend | **Vercel** | `vercel deploy dist --prod` from `frontend\dist` after build |
+| Backend API | **Railway** | Auto-deploys from GitHub master branch |
+| Analyst Bot | **Railway** | Auto-deploys from GitHub master branch |
+| Trader Bot | **Railway** | Auto-deploys from GitHub master branch |
 | PostgreSQL | **Railway** | Managed add-on |
 | Redis | **Railway** | Managed add-on |
 
