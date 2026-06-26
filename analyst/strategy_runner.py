@@ -11,6 +11,10 @@ from analyst.strategies import (
     PullbackStrategy,
     RangeStrategy,
     CounterTrendStrategy,
+    StochRSIStrategy,
+    PSARStrategy,
+    MFIStrategy,
+    VWAPStrategy,
 )
 from shared.models import StrategyResult
 from shared.logger import get_logger
@@ -29,6 +33,10 @@ STRATEGY_MAP = {
     "pullback": PullbackStrategy,
     "range": RangeStrategy,
     "counter_trend": CounterTrendStrategy,
+    "stoch_rsi": StochRSIStrategy,
+    "psar": PSARStrategy,
+    "mfi": MFIStrategy,
+    "vwap": VWAPStrategy,
 }
 
 

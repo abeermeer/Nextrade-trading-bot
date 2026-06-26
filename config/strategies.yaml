@@ -88,6 +88,39 @@ strategies:
       overbought: 70
       min_drop_pct: 3
 
+  stoch_rsi:
+    enabled: true
+    weight: 0.20
+    params:
+      length: 14
+      rsi_length: 14
+      k: 3
+      d: 3
+      oversold: 0.2
+      overbought: 0.8
+
+  psar:
+    enabled: true
+    weight: 0.15
+    params:
+      af: 0.02
+      max_af: 0.2
+
+  mfi:
+    enabled: true
+    weight: 0.15
+    params:
+      length: 14
+      oversold: 20
+      overbought: 80
+
+  vwap:
+    enabled: true
+    weight: 0.15
+    params:
+      deviation: 1.0
+      lookback: 50
+
 signal_resolution:
   mode: weighted  # weighted | strict | majority
   confidence_threshold: 0.5

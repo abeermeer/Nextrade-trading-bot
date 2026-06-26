@@ -10,6 +10,10 @@ from analyst.strategies.ichimoku_strategy import IchimokuStrategy
 from analyst.strategies.pullback_strategy import PullbackStrategy
 from analyst.strategies.range_strategy import RangeStrategy
 from analyst.strategies.counter_trend_strategy import CounterTrendStrategy
+from analyst.strategies.stoch_rsi_strategy import StochRSIStrategy
+from analyst.strategies.psar_strategy import PSARStrategy
+from analyst.strategies.mfi_strategy import MFIStrategy
+from analyst.strategies.vwap_strategy import VWAPStrategy
 
 __all__ = [
     "BaseStrategy",
@@ -24,4 +28,8 @@ __all__ = [
     "PullbackStrategy",
     "RangeStrategy",
     "CounterTrendStrategy",
+    "StochRSIStrategy",
+    "PSARStrategy",
+    "MFIStrategy",
+    "VWAPStrategy",
 ]
