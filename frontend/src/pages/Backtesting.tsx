@@ -8,7 +8,7 @@ import { api } from "../api/client";
 import type { BacktestResult } from "../types";
 
 const PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "ADA/USDT", "DOGE/USDT", "XRP/USDT", "AVAX/USDT", "DOT/USDT", "LINK/USDT"];
-const STRATEGIES = ["rsi", "macd", "ema", "volume", "bollinger", "supertrend", "adx", "ichimoku"];
+const STRATEGIES = ["rsi", "macd_cross", "ema_trend", "volume_breakout", "bollinger_squeeze", "supertrend", "adx", "ichimoku", "pullback", "range", "counter_trend", "stoch_rsi", "psar", "mfi", "vwap"];
 
 function MetricCard({ label, value, color = "text-white" }: { label: string; value: string; color?: string }) {
   return (
