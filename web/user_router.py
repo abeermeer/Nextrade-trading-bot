@@ -110,10 +110,11 @@ async def control_bot(
 ):
     if data.action == "start":
         exchange_name = user.exchange.value if hasattr(user.exchange, 'value') else (user.exchange or "mexc")
-        if not user.mexc_api_key or not user.mexc_api_secret:
-            raise HTTPException(status_code=400, detail=f"Set {exchange_name.upper()} API keys first")
-        if user.mode == BotModeDB.live and not user.mexc_keys_verified:
-            raise HTTPException(status_code=400, detail=f"Cannot start bot in live mode: {exchange_name.upper()} API keys are not verified. Go to Settings and re-save your keys.")
+        if user.mode == BotModeDB.live:
+            if not user.mexc_api_key or not user.mexc_api_secret:
+                raise HTTPException(status_code=400, detail=f"Set {exchange_name.upper()} API keys first")
+            if not user.mexc_keys_verified:
+                raise HTTPException(status_code=400, detail=f"Cannot start bot in live mode: {exchange_name.upper()} API keys are not verified. Go to Settings and re-save your keys.")
         user.bot_active = True
     elif data.action == "stop":
         user.bot_active = False
