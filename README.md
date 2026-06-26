@@ -13,8 +13,6 @@
 
 NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC, Binance, and Bybit** exchanges. It features an autonomous market analyst that generates signals using 15 strategies, a multi-tenant trader that executes positions per user, and a full SaaS web dashboard with JWT authentication, encrypted API key storage, and plan-based access control.
 
-**Live demo:** [dist-rho-sandy-41.vercel.app](https://dist-rho-sandy-41.vercel.app)
-
 ## Architecture
 
 ```
