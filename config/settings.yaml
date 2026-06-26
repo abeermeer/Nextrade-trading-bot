@@ -1,6 +1,6 @@
 bot:
   name: mexc-trading-bot
-  mode: live  # paper | live
+  mode: paper  # paper | live
   version: 0.1.0
 
 analyst:

@@ -126,10 +126,12 @@ class AnalystBot:
                 return
 
             current_price = float(df["close"].iloc[-1])
+            is_paper = self.settings.get("bot", {}).get("mode", "live") == "paper"
             signal = self.signal_aggregator.aggregate(
                 symbol=symbol,
                 price=current_price,
                 strategy_results=strategy_results,
+                paper_mode=is_paper,
             )
 
             signal_data = signal.model_dump(mode="json")

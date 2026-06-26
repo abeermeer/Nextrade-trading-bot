@@ -82,6 +82,9 @@ signal_resolution:
   mode: weighted  # weighted | strict | majority
   confidence_threshold: 0.5
   min_signals_required: 2
+  paper:
+    confidence_threshold: 0.3
+    min_signals_required: 1
   strict_overrides:
     - daily_drawdown_exceeded
     - circuit_breaker_active

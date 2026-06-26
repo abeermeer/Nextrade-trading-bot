@@ -15,18 +15,27 @@ class SignalAggregator:
     def __init__(self, config: dict):
         self.config = config
         resolution = config.get("signal_resolution", {})
+        paper = resolution.get("paper", {})
         self.mode = resolution.get("mode", "weighted")
         self.confidence_threshold = resolution.get("confidence_threshold", 0.6)
         self.min_signals_required = resolution.get("min_signals_required", 2)
+        self.paper_confidence_threshold = paper.get("confidence_threshold", self.confidence_threshold)
+        self.paper_min_signals_required = paper.get("min_signals_required", self.min_signals_required)
         self.strict_overrides: list[str] = resolution.get("strict_overrides", [])
+        self.is_paper = False
 
     def aggregate(
         self,
         symbol: str,
         price: float,
         strategy_results: list[StrategyResult],
+        paper_mode: bool = False,
     ) -> Signal:
-        if len(strategy_results) < self.min_signals_required:
+        self.is_paper = paper_mode
+        threshold = self.paper_confidence_threshold if paper_mode else self.confidence_threshold
+        min_sig = self.paper_min_signals_required if paper_mode else self.min_signals_required
+
+        if len(strategy_results) < min_sig:
             return Signal(
                 symbol=symbol,
                 action=SignalAction.HOLD,
@@ -44,11 +53,20 @@ class SignalAggregator:
         else:
             return self._weighted_aggregate(symbol, price, strategy_results)
 
+    @property
+    def _threshold(self) -> float:
+        return self.paper_confidence_threshold if self.is_paper else self.confidence_threshold
+
+    @property
+    def _min_sig(self) -> int:
+        return self.paper_min_signals_required if self.is_paper else self.min_signals_required
+
     def _strict_aggregate(
         self, symbol: str, price: float, results: list[StrategyResult]
     ) -> Signal:
+        threshold = self._threshold
         for r in results:
-            if r.action == SignalAction.SELL and r.confidence >= self.confidence_threshold:
+            if r.action == SignalAction.SELL and r.confidence >= threshold:
                 logger.info(
                     "strict_override_sell",
                     symbol=symbol,
@@ -68,8 +86,9 @@ class SignalAggregator:
     def _majority_aggregate(
         self, symbol: str, price: float, results: list[StrategyResult]
     ) -> Signal:
-        buys = sum(1 for r in results if r.action == SignalAction.BUY and r.confidence >= self.confidence_threshold)
-        sells = sum(1 for r in results if r.action == SignalAction.SELL and r.confidence >= self.confidence_threshold)
+        threshold = self._threshold
+        buys = sum(1 for r in results if r.action == SignalAction.BUY and r.confidence >= threshold)
+        sells = sum(1 for r in results if r.action == SignalAction.SELL and r.confidence >= threshold)
 
         if buys > sells:
             action = SignalAction.BUY
