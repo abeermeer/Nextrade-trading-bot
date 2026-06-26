@@ -10,6 +10,7 @@ from analyst.strategies import (
     IchimokuStrategy,
     PullbackStrategy,
     RangeStrategy,
+    CounterTrendStrategy,
 )
 from shared.models import StrategyResult
 from shared.logger import get_logger
@@ -27,6 +28,7 @@ STRATEGY_MAP = {
     "ichimoku": IchimokuStrategy,
     "pullback": PullbackStrategy,
     "range": RangeStrategy,
+    "counter_trend": CounterTrendStrategy,
 }
 
 

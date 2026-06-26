@@ -64,10 +64,10 @@ strategies:
     enabled: true
     weight: 0.10
     params:
-      lookback: 20
-      sideways_entry_pct: 20
-      bear_entry_pct: 30
-      reentry_pct: 10
+      lookback: 14
+      sideways_entry_pct: 8
+      bear_entry_pct: 15
+      reentry_pct: 5
 
   range:
     enabled: true
@@ -77,6 +77,16 @@ strategies:
       range_threshold: 0.10
       oversold_pct: 20
       overbought_pct: 80
+
+  counter_trend:
+    enabled: true
+    weight: 0.25
+    params:
+      rsi_period: 7
+      ema_period: 20
+      oversold: 30
+      overbought: 70
+      min_drop_pct: 3
 
 signal_resolution:
   mode: weighted  # weighted | strict | majority

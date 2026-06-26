@@ -9,6 +9,7 @@ from analyst.strategies.adx_strategy import ADXStrategy
 from analyst.strategies.ichimoku_strategy import IchimokuStrategy
 from analyst.strategies.pullback_strategy import PullbackStrategy
 from analyst.strategies.range_strategy import RangeStrategy
+from analyst.strategies.counter_trend_strategy import CounterTrendStrategy
 
 __all__ = [
     "BaseStrategy",
@@ -22,4 +23,5 @@ __all__ = [
     "IchimokuStrategy",
     "PullbackStrategy",
     "RangeStrategy",
+    "CounterTrendStrategy",
 ]
