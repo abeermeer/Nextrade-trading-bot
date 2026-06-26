@@ -65,6 +65,8 @@ export default function Dashboard() {
   const traderAlive = status?.trader_alive ?? false;
   const botActive = botStatus?.bot_active ?? user?.bot_active ?? false;
   const hasKeys = botStatus?.has_api_keys ?? user?.has_api_keys ?? false;
+  const botMode = botStatus?.mode ?? user?.mode ?? "paper";
+  const keysRequired = botMode !== "paper" && !hasKeys;
 
   const signalColumns = [
     { key: "symbol", label: "Symbol", render: (s: Signal) => <span className="font-medium">{s.symbol}</span> },
@@ -173,12 +175,15 @@ export default function Dashboard() {
             </div>
 
             <div className="text-center mt-8">
-              {!hasKeys && (
+              {keysRequired && (
                 <p className="text-yellow-400 text-sm mb-3">Set your exchange API keys in Settings first</p>
+              )}
+              {botMode === "paper" && !hasKeys && !botActive && (
+                <p className="text-blue-400 text-sm mb-3">Paper mode — no API keys needed</p>
               )}
               <button
                 onClick={() => botActive ? stopBot.mutate() : startBot.mutate()}
-                disabled={!hasKeys || startBot.isPending || stopBot.isPending}
+                disabled={keysRequired || startBot.isPending || stopBot.isPending}
                 className={`inline-flex items-center gap-2 px-10 py-3.5 rounded-xl font-bold text-lg transition-all ${
                   botActive
                     ? "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20"
