@@ -15,7 +15,6 @@ from shared.logger import get_logger
 
 logger = get_logger(__name__)
 
-STRATEGY_NAMES = ["rsi", "macd_cross", "ema_trend", "volume_breakout", "bollinger_squeeze", "supertrend", "adx", "ichimoku"]
 
 
 class Backtester:

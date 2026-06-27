@@ -75,6 +75,7 @@ async def register(data: RegisterRequest, session: AsyncSession = Depends(get_se
         email=data.email,
         password_hash=hash_password(data.password),
         plan=plan,
+        bot_active=True,
         max_position_usdt=limits["max_position_usdt"],
         verification_token=verification_token,
         verification_token_expires=datetime.now(timezone.utc) + timedelta(hours=24),

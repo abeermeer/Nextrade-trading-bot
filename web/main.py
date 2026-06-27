@@ -36,7 +36,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             if token:
                 try:
                     payload = decode_token(token)
-                    user_id = payload.get("user_id")
+                    user_id = payload.get("sub") or payload.get("user_id")
                     if user_id:
                         from shared.redis_client import create_redis_client
                         from datetime import datetime, timezone

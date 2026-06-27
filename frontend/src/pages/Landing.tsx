@@ -291,7 +291,7 @@ export default function Landing() {
             {[
               { label: "Active Traders", value: stats ? `${stats.total_users}+` : "—", desc: "and growing" },
               { label: "Trades Executed", value: stats ? `${stats.total_trades.toLocaleString()}+` : "—", desc: "all automated" },
-              { label: "Strategies", value: "8", desc: "institutional-grade" },
+              { label: "Strategies", value: "15", desc: "institutional-grade" },
               { label: "Win Rate", value: stats ? `${stats.win_rate}%` : "—", desc: "average" },
             ].map((s, i) => (
               <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}
@@ -320,7 +320,7 @@ export default function Landing() {
             className="grid md:grid-cols-2 lg:grid-cols-3 gap-4"
           >
             {[
-              { Icon: BrainIcon, title: "8 AI Strategies", desc: "RSI, MACD, EMA, Bollinger, Volume, Supertrend, ADX, Ichimoku — diversified across timeframes", size: "normal" },
+              { Icon: BrainIcon, title: "15 AI Strategies", desc: "RSI, MACD, EMA, Bollinger, Supertrend, ADX, Ichimoku, CounterTrend, StochRSI, PSAR, MFI, VWAP & more — diversified across timeframes", size: "normal" },
               { Icon: BotIcon, title: "Auto-Pilot 24/7", desc: "Analyst + Trader communicate via Redis pub/sub. Click start and they work around the clock", size: "normal" },
               { Icon: ShieldIcon, title: "Risk-First Design", desc: "Circuit breaker at 10% drawdown. Daily loss limits. Trailing stop-loss. Cooldown protection.", size: "normal" },
               { Icon: ChartIcon, title: "Live Dashboard", desc: "Real-time P&L, equity curve, open positions, signal history, and bot logs. Every trade you can see.", size: "tall" },

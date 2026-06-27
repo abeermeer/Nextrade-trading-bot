@@ -1,4 +1,6 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
@@ -16,11 +18,26 @@ from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/api")
 
+bearer_scheme = HTTPBearer(auto_error=False)
 
-async def _get_db_user(token: str, session: AsyncSession):
-    payload = decode_token(token)
-    user_id = payload.get("user_id")
-    result = await session.execute(select(UserRecord).where(UserRecord.id == user_id))
+
+async def _get_db_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    token: str = Query(None),
+    session: AsyncSession = Depends(get_session),
+) -> UserRecord:
+    actual_token = None
+    if credentials:
+        actual_token = credentials.credentials
+    elif token:
+        actual_token = token
+    if not actual_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    payload = decode_token(actual_token)
+    uid = payload.get("sub")
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    result = await session.execute(select(UserRecord).where(UserRecord.id == int(uid)))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -29,7 +46,7 @@ async def _get_db_user(token: str, session: AsyncSession):
 
 @router.get("/strategy-performance")
 async def get_strategy_performance(
-    token: str = Query(...),
+    _user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
@@ -44,7 +61,7 @@ async def get_strategy_performance(
         strategies = row.strategy_results or []
         if isinstance(strategies, list):
             for s in strategies:
-                name = s.get("name", "unknown") if isinstance(s, dict) else str(s)
+                name = s.get("strategy_name", s.get("name", "unknown")) if isinstance(s, dict) else str(s)
                 if name not in strategy_data:
                     strategy_data[name] = {"signals": 0, "wins": 0, "losses": 0, "total_pnl": 0.0, "avg_confidence": 0.0}
                 strategy_data[name]["signals"] += 1
@@ -73,10 +90,9 @@ async def get_strategy_performance(
 
 @router.get("/portfolio")
 async def get_portfolio(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
 
     pos_result = await session.execute(
         select(PositionRecord).where(
@@ -122,10 +138,9 @@ async def get_portfolio(
 
 @router.get("/trades/export")
 async def export_trades_csv(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     result = await session.execute(
         select(TradeRecord).where(TradeRecord.user_id == user.id).order_by(desc(TradeRecord.created_at)).limit(1000)
     )
@@ -143,10 +158,9 @@ async def export_trades_csv(
 
 @router.get("/positions/export")
 async def export_positions_csv(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     result = await session.execute(
         select(PositionRecord).where(PositionRecord.user_id == user.id).order_by(desc(PositionRecord.opened_at)).limit(1000)
     )
@@ -164,10 +178,9 @@ async def export_positions_csv(
 
 @router.get("/user/data-export")
 async def export_user_data(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     trades = await session.execute(select(TradeRecord).where(TradeRecord.user_id == user.id))
     positions = await session.execute(select(PositionRecord).where(PositionRecord.user_id == user.id))
     signals = await session.execute(select(SignalRecord).where(SignalRecord.user_id == user.id))
@@ -192,10 +205,9 @@ async def export_user_data(
 
 @router.delete("/user/data-delete")
 async def delete_user_data(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
 
     user.bot_active = False
     try:
@@ -224,20 +236,18 @@ async def delete_user_data(
 
 @router.get("/user/strategy-config")
 async def get_strategy_config(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     return {"strategy_settings": user.strategy_settings or {}}
 
 
 @router.put("/user/strategy-config")
 async def update_strategy_config(
     data: dict,
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     user.strategy_settings = data.get("strategy_settings", {})
     await session.commit()
     return {"success": True}
@@ -245,20 +255,18 @@ async def update_strategy_config(
 
 @router.get("/user/notification-prefs")
 async def get_notification_prefs(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     return {"notification_prefs": user.notification_prefs or {"email": True, "telegram": False, "push": False}}
 
 
 @router.put("/user/notification-prefs")
 async def update_notification_prefs(
     data: dict,
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     user.notification_prefs = data.get("notification_prefs", {})
     await session.commit()
     return {"success": True}
@@ -266,20 +274,18 @@ async def update_notification_prefs(
 
 @router.get("/user/selected-pairs")
 async def get_selected_pairs(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     return {"selected_pairs": user.selected_pairs or ["BTC/USDT", "ETH/USDT", "SOL/USDT"]}
 
 
 @router.put("/user/selected-pairs")
 async def update_selected_pairs(
     data: dict,
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     pairs = data.get("selected_pairs", [])
     limits = get_plan_limits(user.plan.value if hasattr(user.plan, 'value') else "basic")
     max_pairs = limits.get("max_pairs", 3)
@@ -300,10 +306,9 @@ def _generate_api_key() -> tuple[str, str, str]:
 @router.post("/user/api-keys")
 async def create_api_key(
     data: dict,
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     name = data.get("name", "Default")
     raw, key_hash, prefix = _generate_api_key()
 
@@ -321,10 +326,9 @@ async def create_api_key(
 
 @router.get("/user/api-keys")
 async def list_api_keys(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     result = await session.execute(
         select(UserApiKeyRecord).where(UserApiKeyRecord.user_id == user.id, UserApiKeyRecord.is_active == True)
     )
@@ -335,10 +339,9 @@ async def list_api_keys(
 @router.delete("/user/api-keys/{key_id}")
 async def revoke_api_key(
     key_id: int,
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     result = await session.execute(
         select(UserApiKeyRecord).where(UserApiKeyRecord.id == key_id, UserApiKeyRecord.user_id == user.id)
     )
@@ -352,10 +355,9 @@ async def revoke_api_key(
 
 @router.get("/admin/analytics")
 async def get_admin_analytics(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin only")
 
@@ -413,10 +415,9 @@ async def get_admin_analytics(
 
 @router.get("/user/trial-status")
 async def get_trial_status(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     now = datetime.now(timezone.utc)
     expired = is_trial_expired(user)
 
@@ -437,10 +438,9 @@ async def get_trial_status(
 @router.post("/backtest")
 async def run_backtest(
     data: dict,
-    token: str = Query(...),
+    _user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     pair = data.get("pair", "BTC/USDT")
     strategy = data.get("strategy", "rsi")
     days = data.get("days", 30)
@@ -475,10 +475,9 @@ async def run_backtest(
 
 @router.get("/user/usage")
 async def get_usage_stats(
-    token: str = Query(...),
+    user: UserRecord = Depends(_get_db_user),
     session: AsyncSession = Depends(get_session),
 ):
-    user = await _get_db_user(token, session)
     return {
         "api_calls": user.usage_api_calls or 0,
         "bot_hours": user.usage_bot_hours or 0,
