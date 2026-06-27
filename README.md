@@ -2,16 +2,21 @@
   <h1>NexTrade AI</h1>
   <p>Multi-exchange algorithmic trading platform — MEXC, Binance, Bybit</p>
   <p>
+    <a href="https://mexc-trading-bot-production-c215.up.railway.app/health">
+      <img src="https://img.shields.io/badge/backend-online-success?style=flat-square" alt="Backend">
+    </a>
     <img src="https://img.shields.io/badge/python-3.12-blue?style=flat-square" alt="Python 3.12">
     <img src="https://img.shields.io/badge/react-19-61DAFB?style=flat-square" alt="React 19">
     <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square" alt="FastAPI">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
+    <img src="https://img.shields.io/badge/strategies-15-orange?style=flat-square" alt="15 Strategies">
+    <img src="https://img.shields.io/badge/tests-64%20passing-brightgreen?style=flat-square" alt="64 Tests Passing">
   </p>
 </div>
 
 ## Overview
 
-NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC, Binance, and Bybit** exchanges. It features an autonomous market analyst that generates signals using 15 strategies, a multi-tenant trader that executes positions per user, and a full SaaS web dashboard with JWT authentication, encrypted API key storage, and plan-based access control.
+NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC, Binance, and Bybit** exchanges. It features an autonomous market analyst that generates signals across **40 trading pairs** using **15 strategies**, a multi-tenant trader that executes positions per user via Redis pub/sub, and a full SaaS web dashboard with JWT authentication, encrypted API key storage, and plan-based access control.
 
 ## Architecture
 
@@ -141,7 +146,7 @@ NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC
 ### 1. Clone & Setup
 
 ```bash
-git clone https://github.com/abeeruniversity/mexc-trading-bot.git
+git clone https://github.com/abeermeer/Nextrade-trading-bot.git
 cd mexc-trading-bot
 
 # Python virtual environment
@@ -181,14 +186,22 @@ docker-compose up redis -d
 uvicorn web.main:app --reload --port 8000
 
 # Start analyst (separate terminal)
-python -m analyst.analyst_bot
+python scripts/run_analyst.py
 
 # Start trader (separate terminal)
-python -m trader.trader_bot
+python scripts/run_trader.py
 
 # Start frontend dev server (separate terminal)
 cd frontend && npm run dev
 ```
+
+### Vercel Frontend Deploy
+
+```bash
+cd frontend && npm run build && Copy-Item vercel.json dist\ && vercel deploy dist --prod --yes
+```
+
+**Important**: `vercel.json` MUST be copied into `dist/` before deploy, because `vercel deploy dist` treats `dist/` as the root.
 
 ### Docker
 
@@ -197,6 +210,15 @@ docker-compose up --build
 ```
 
 This starts Redis, backend (FastAPI), analyst, and trader services.
+
+### Railway (Production)
+
+The system runs as 3 separate services on Railway:
+1. **web** — FastAPI dashboard (Dockerfile.web)
+2. **analyst** — Signal generation (Dockerfile.analyst)
+3. **trader** — Multi-tenant trade executor (Dockerfile.trader)
+
+**Critical**: The Railway Redis Plugin MUST be attached to ALL 3 services so they share the same Redis instance. Without this, the analyst publishes signals to one Redis and the trader subscribes to another — resulting in 0 trades.
 
 ## API Reference
 
@@ -328,10 +350,10 @@ The backend exposes a REST API at `/api/*`. All authenticated endpoints require 
 
 ```bash
 # Run all 64 tests
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # With coverage
-pytest tests/ --cov=. --cov-report=term
+uv run pytest tests/ --cov=. --cov-report=term
 ```
 
 ## Deployment
