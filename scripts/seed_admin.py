@@ -26,4 +26,16 @@ async def seed_admin():
             await session.commit()
             print("Admin user seeded: abeermeer7979@gmail.com")
         else:
-            print("Admin user already exists")
+            existing = result.scalar_one()
+            updated = False
+            if not existing.bot_active:
+                existing.bot_active = True
+                updated = True
+            if not existing.is_admin:
+                existing.is_admin = True
+                updated = True
+            if updated:
+                await session.commit()
+                print("Admin user updated: bot_active=True, is_admin=True")
+            else:
+                print("Admin user already exists")
