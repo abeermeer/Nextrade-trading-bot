@@ -1,10 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import asyncio
 
 import pandas as pd
-import yfinance as yf
 
+from analyst.data_fetcher import DataFetcher
 from analyst.indicator_calculator import IndicatorCalculator
 from analyst.strategy_runner import StrategyRunner
 from analyst.signal_aggregator import SignalAggregator
@@ -15,6 +15,7 @@ from shared.logger import get_logger
 
 logger = get_logger(__name__)
 
+PERIOD_DAYS = {"5d": 5, "14d": 14, "1mo": 30, "2mo": 60, "3mo": 90}
 
 
 class Backtester:
@@ -25,26 +26,15 @@ class Backtester:
         self.indicator_calculator = IndicatorCalculator(analyst_cfg)
         self.strategy_runner = StrategyRunner(strategies_config)
         self.signal_aggregator = SignalAggregator(strategies_config)
+        self.data_fetcher = DataFetcher()
 
     async def fetch_data(self, symbol: str, timeframe: str = "1h", period: str = "3mo") -> pd.DataFrame:
-        yf_symbol = symbol.replace("/", "-").replace("USDT", "-USD")
-        logger.info("backtest_fetching", symbol=yf_symbol, timeframe=timeframe, period=period)
-        loop = asyncio.get_running_loop()
-        ticker = yf.Ticker(yf_symbol)
-        df = await loop.run_in_executor(None, lambda: ticker.history(period=period, interval=timeframe))
-        if df.empty:
-            yf_symbol_alt = symbol.replace("/", "") + "-USD"
-            ticker = yf.Ticker(yf_symbol_alt)
-            df = await loop.run_in_executor(None, lambda: ticker.history(period=period, interval=timeframe))
-        if df.empty:
-            raise ValueError(f"No data for {symbol} via yfinance")
-        df.rename(
-            columns={
-                "Open": "open", "High": "high", "Low": "low",
-                "Close": "close", "Volume": "volume",
-            },
-            inplace=True,
-        )
+        days = PERIOD_DAYS.get(period, 90)
+        since_ms = int((datetime.now(timezone.utc) - timedelta(days=days)).timestamp() * 1000)
+        logger.info("backtest_fetching", symbol=symbol, timeframe=timeframe, days=days)
+        df = await self.data_fetcher.fetch_ohlcv_since(symbol, timeframe, since_ms, limit=1000)
+        if df is None or df.empty:
+            raise ValueError(f"No data for {symbol} on {timeframe} via ccxt")
         df = self.indicator_calculator.calculate_all(df)
         return df
 
