@@ -286,3 +286,15 @@ async def debug_admin(session: AsyncSession = Depends(get_session)):
         "plan": str(user.plan.value) if hasattr(user.plan, 'value') else str(user.plan),
         "mode": str(user.mode.value) if hasattr(user.mode, 'value') else str(user.mode),
     }
+
+
+@router.get("/debug/trader-simulate")
+async def debug_trader_simulate(session: AsyncSession = Depends(get_session)):
+    from db.models import UserRecord
+    result = await session.execute(select(UserRecord).where(UserRecord.bot_active == True))
+    users = result.scalars().all()
+    return {
+        "total_users": len(users),
+        "users": [{"id": u.id, "email": u.email, "bot_active": u.bot_active} for u in users],
+        "query": "SELECT FROM users WHERE bot_active = True",
+    }
