@@ -137,10 +137,8 @@ class TraderBot:
                     select(UserRecord).where(UserRecord.bot_active == True)
                 )
                 users = result.scalars().all()
-            print(f"DBG _refresh_users found={len(users)}", flush=True)
         except Exception as e:
             logger.error("user_refresh_error", error=str(e))
-            print(f"DBG _refresh_users ERROR={e}", flush=True)
             return
 
         current_ids = set(self.sessions.keys())
@@ -335,7 +333,6 @@ class TraderBot:
             await self._close_position(session, symbol, signal.price, "signal")
             return
         if not has_position and signal.action == SignalAction.BUY:
-            print(f"DBG _execute BUY: symbol={symbol} signal.price={signal.price} signal.confidence={signal.confidence}")
             await self._open_position(session, symbol, signal.price)
             return
 
@@ -362,13 +359,11 @@ class TraderBot:
         take_profit = price * (1 + tp_pct / 100)
 
         if session.mode == BotMode.PAPER:
-            print(f"DBG _open_position: calling create_order price={price} qty={quantity} stop_loss={stop_loss} tp={take_profit}")
             order = await session.paper_engine.create_order(
                 symbol=symbol, side=OrderSide.BUY, order_type=OrderType.MARKET,
                 quantity=quantity, price=price, stop_loss=stop_loss, take_profit=take_profit,
             )
             fill_price = order.average_fill_price
-            print(f"DBG _open_position: order status={order.status} fill_price={fill_price} filled_qty={order.filled_quantity}")
         else:
             if not session.exchange or not session._exchange_created:
                 logger.warning("no_exchange_for_user", user=session.user_id)
@@ -394,16 +389,12 @@ class TraderBot:
         await self._push_log("info", f"BUY {symbol} @ {fill_price} qty={quantity:.4f}", user=session.user_id, symbol=symbol)
 
         try:
-            print(f"DBG save_position: symbol={symbol} price={fill_price} qty={quantity} mode={session.mode.value} uid={session.user_id}")
             await save_position(pos, session.mode.value, user_id=session.user_id)
-            print(f"DBG save_trade: symbol={symbol} price={fill_price} qty={quantity}")
             await save_trade(
                 symbol=symbol, side="buy", price=fill_price, quantity=quantity,
                 fee=0.001 * fill_price * quantity, mode=session.mode.value, user_id=session.user_id,
             )
-            print("DBG save SUCCESS")
         except Exception as e:
-            print(f"DBG save FAILED: {e}")
             logger.error("db_save_trade_error", error=str(e))
 
         notifier = self._get_notifier()
