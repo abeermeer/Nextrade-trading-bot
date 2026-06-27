@@ -29,6 +29,9 @@ async def main():
 
     logger = get_logger(__name__)
 
+    import os as _os
+    print(f"DBG DATABASE_URL={_os.getenv('DATABASE_URL', 'NOT_SET')}", flush=True)
+
     try:
         await init_db()
         logger.info("database_initialized")
