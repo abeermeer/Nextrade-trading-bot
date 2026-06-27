@@ -19,7 +19,7 @@ async def seed_admin():
                 password_hash=hash_password(admin_password),
                 plan="enterprise",
                 is_admin=True,
-                bot_active=False,
+                bot_active=True,
                 max_position_usdt=999999.0,
             )
             session.add(admin)
