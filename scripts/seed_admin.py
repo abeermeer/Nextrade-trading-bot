@@ -13,7 +13,8 @@ async def seed_admin():
         return
     async with async_session_factory() as session:
         result = await session.execute(select(UserRecord).where(UserRecord.email == "abeermeer7979@gmail.com"))
-        if not result.scalar_one_or_none():
+        existing = result.scalar_one_or_none()
+        if not existing:
             admin = UserRecord(
                 email="abeermeer7979@gmail.com",
                 password_hash=hash_password(admin_password),
@@ -26,7 +27,6 @@ async def seed_admin():
             await session.commit()
             print("Admin user seeded: abeermeer7979@gmail.com")
         else:
-            existing = result.scalar_one()
             updated = False
             if not existing.bot_active:
                 existing.bot_active = True
