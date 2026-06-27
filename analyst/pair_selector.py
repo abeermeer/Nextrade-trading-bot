@@ -5,16 +5,14 @@ from shared.logger import get_logger
 logger = get_logger(__name__)
 
 DEFAULT_PAIRS = [
-    "BTC/USDT",
-    "ETH/USDT",
-    "SOL/USDT",
-    "BNB/USDT",
-    "XRP/USDT",
-    "ADA/USDT",
-    "DOGE/USDT",
-    "AVAX/USDT",
-    "DOT/USDT",
-    "LINK/USDT",
+    "BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
+    "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "DOT/USDT", "LINK/USDT",
+    "MATIC/USDT", "UNI/USDT", "SHIB/USDT", "LTC/USDT", "ATOM/USDT",
+    "ETC/USDT", "XLM/USDT", "FIL/USDT", "TRX/USDT", "NEAR/USDT",
+    "APT/USDT", "ARB/USDT", "OP/USDT", "SUI/USDT", "PEPE/USDT",
+    "INJ/USDT", "TIA/USDT", "SEI/USDT", "RUNE/USDT", "AAVE/USDT",
+    "ALGO/USDT", "FTM/USDT", "SAND/USDT", "MANA/USDT", "AXS/USDT",
+    "CRV/USDT", "APE/USDT", "FLOW/USDT", "ICP/USDT", "EGLD/USDT",
 ]
 
 

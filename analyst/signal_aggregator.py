@@ -14,6 +14,10 @@ ACTION_SCORE = {
 class SignalAggregator:
     def __init__(self, config: dict):
         self.config = config
+        strategies_cfg = config.get("strategies", {})
+        self._strategy_weights: dict[str, float] = {}
+        for name, scfg in strategies_cfg.items():
+            self._strategy_weights[name] = scfg.get("weight", 0.15)
         resolution = config.get("signal_resolution", {})
         paper = resolution.get("paper", {})
         self.mode = resolution.get("mode", "weighted")
@@ -123,7 +127,7 @@ class SignalAggregator:
         total_weight = 0.0
 
         for r in results:
-            weight = r.confidence
+            weight = self._strategy_weights.get(r.strategy_name, 0.15) * r.confidence
             total_score += ACTION_SCORE[r.action] * weight
             total_weight += weight
 
@@ -139,9 +143,9 @@ class SignalAggregator:
 
         normalized = total_score / total_weight
 
-        if normalized > 0.2:
+        if normalized > 0.15:
             action = SignalAction.BUY
-        elif normalized < -0.2:
+        elif normalized < -0.15:
             action = SignalAction.SELL
         else:
             action = SignalAction.HOLD

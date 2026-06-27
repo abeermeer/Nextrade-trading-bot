@@ -222,7 +222,10 @@ class TraderBot:
 
         if self._realtime:
             asyncio.create_task(self._realtime.start(
-                symbols=["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT"],
+                symbols=["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
+                         "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "DOT/USDT", "LINK/USDT",
+                         "MATIC/USDT", "UNI/USDT", "SHIB/USDT", "LTC/USDT", "ATOM/USDT",
+                         "ETC/USDT", "XLM/USDT", "FIL/USDT", "TRX/USDT", "NEAR/USDT"],
             ))
 
         logger.info("trader_bot_started", session_count=len(self.sessions))

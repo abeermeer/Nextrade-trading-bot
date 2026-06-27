@@ -7,7 +7,7 @@ from db.models import UserRecord, BotModeDB, TradeTypeDB
 from web.auth import get_current_user, get_admin_user
 from shared.encryption import encrypt
 from shared.plan_limits import get_plan_limits, enforce_plan_limit
-from shared.redis_client import RedisClient
+from shared.redis_client import create_redis_client
 from shared.wallet import verify_wallet_signature
 from trader.exchange.factory import create_exchange
 
@@ -122,7 +122,7 @@ async def control_bot(
         raise HTTPException(status_code=400, detail="Invalid action")
     await session.commit()
     try:
-        rc = RedisClient()
+        rc = create_redis_client()
         await rc.connect()
         await rc.publish("bot:control", {"user_id": user.id, "action": data.action})
         await rc.disconnect()

@@ -19,7 +19,7 @@ analyst:
     bollinger_std: 2
     volume_ma_period: 20
   signal_interval_seconds: 300  # 5 min between signal generation cycles
-  max_pairs_to_analyze: 10
+  max_pairs_to_analyze: 40
   heartbeat_interval_seconds: 30
 
 trader:
