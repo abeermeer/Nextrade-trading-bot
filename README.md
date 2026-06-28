@@ -13,7 +13,7 @@
     <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square" alt="FastAPI">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
     <img src="https://img.shields.io/badge/strategies-15-orange?style=flat-square" alt="15 Strategies">
-    <img src="https://img.shields.io/badge/tests-55%20passing-brightgreen?style=flat-square" alt="55 Tests Passing">
+    <img src="https://img.shields.io/badge/tests-49%20passing-brightgreen?style=flat-square" alt="49 Tests Passing">
   </p>
 </div>
 
@@ -21,9 +21,9 @@
 
 ## Overview
 
-NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC, Binance, and Bybit** exchanges. It features an autonomous market analyst that generates signals across **40 trading pairs** using **15 strategies**, a multi-tenant trader that executes positions per user via Redis pub/sub, and a full SaaS web dashboard with JWT authentication, encrypted API key storage, and plan-based access control.
+NexTrade AI is a production-grade algorithmic trading platform supporting **MEXC, Binance, and Bybit**. It features an autonomous analyst that scans markets using **15 strategies** across multiple timeframes, a self-improving **strategy scorer** that backtests and tracks real-time accuracy to dynamically adjust weights, and a multi-tenant trader that executes positions per user via Redis pub/sub.
 
-The system has undergone a comprehensive safety audit against production failure scenarios: exchange credential errors, fake balance fallbacks, restart position recovery, SL/TP reconciliation, order ID traceability, and exchange-side fee extraction.
+The frontend is a **dark-only** React 19 SPA with an amber/gold accent palette and Inter typography — designed for extended trading sessions. The backend serves a full SaaS platform: JWT auth, encrypted API key storage (Fernet AES-256), Stripe subscriptions, and plan-based access control.
 
 ## Architecture
 
@@ -31,6 +31,7 @@ The system has undergone a comprehensive safety audit against production failure
 ┌─────────────────────────────────────────────────────────┐
 │                    Frontend (Vercel)                      │
 │  React 19 + Tailwind v4 + Recharts + React Query         │
+│  Dark-only · Amber accent · Inter + JetBrains Mono       │
 └────────────────────┬────────────────────────────────────┘
                      │ HTTPS / JWT
 ┌────────────────────▼────────────────────────────────────┐
@@ -42,13 +43,12 @@ The system has undergone a comprehensive safety audit against production failure
 └──────┬──────────────────────────────┬───────────────────┘
        │ Redis pub/sub                │ Redis pub/sub
 ┌──────▼──────────┐          ┌───────▼───────────────────┐
-│  Analyst Bot    │          │     Trader Bot (Railway)   │
-│  · 15 strategies│ signals  │  · Multi-tenant sessions   │
-│  · Signal gen   │────────► │  · Per-user exchange clients│
-│  · Heartbeat    │          │  · Paper + Live execution  │
-└─────────────────┘          │  · Risk management         │
-                             │  · Position tracking        │
-                             │  · Telegram/Email alerts    │
+│  Analyst Bot    │ signals  │     Trader Bot (Railway)   │
+│  · 15 strategies│────────► │  · Multi-tenant sessions   │
+│  · Strategy     │          │  · Per-user exchange clients│
+│    scorer       │          │  · Paper + Live execution  │
+│  · Heartbeat    │          │  · Risk management         │
+└─────────────────┘          │  · Position tracking        │
                              └────────────────────────────┘
 ```
 
@@ -56,12 +56,22 @@ The system has undergone a comprehensive safety audit against production failure
 
 | Service | Stack | Hosting |
 |---------|-------|---------|
-| **Frontend** | React 19, TypeScript, Tailwind v4, Recharts | Vercel |
+| **Frontend** | React 19, TypeScript, Tailwind v4, Recharts, Framer Motion | Vercel |
 | **Backend API** | FastAPI, SQLAlchemy (async), PostgreSQL, Redis | Railway |
-| **Analyst Bot** | Python, pandas_ta, ccxt, Redis pub/sub | Railway |
-| **Trader Bot** | Python, ccxt, Redis pub/sub, multi-tenant | Railway |
+| **Analyst Bot** | Python, pandas_ta, ccxt, Redis pub/sub, strategy scorer | Railway |
+| **Trader Bot** | Python, ccxt, Redis pub/sub, multi-tenant sessions | Railway |
 | **Database** | PostgreSQL (prod) / SQLite (dev) | Railway |
 | **Cache** | Redis — signals, heartbeats, logs, rate limits | Railway |
+
+## Strategy Scorer
+
+Strategies are scored and weighted dynamically using a hybrid approach:
+
+1. **Backtest scorer** — Walk-forward backtest on BTC/ETH/SOL 1h data every 6h. Composite score from Sharpe, win rate, and P&L.
+2. **Real-time accuracy tracker** — Records each strategy's vote, checks price direction next cycle. Filters noise below 0.1%.
+3. **Weight blender** — Blends backtest baseline (70%) with accuracy drift (30%). Dynamic weights published to Redis and consumed by the aggregator.
+
+Poor performers naturally lose weight over time — no manual tuning needed.
 
 ## Production Safety (Audited)
 
@@ -85,6 +95,7 @@ All critical failure modes from independent code audits have been addressed:
 ### Trading Engine
 - **15 strategies**: RSI, MACD cross, EMA trend, Volume breakout, Bollinger squeeze, Supertrend, ADX, Ichimoku, Pullback, Range, CounterTrend, StochRSI, PSAR, MFI, VWAP
 - **Multi-timeframe analysis**: 15m, 1h, 4h with configurable signal resolution
+- **Self-improving strategy scoring**: automatic backtesting + real-time accuracy tracking with dynamic weight blending
 - **Paper trading** with realistic fill simulation (slippage, spread)
 - **Live trading** via MEXC, Binance, Bybit (spot + futures)
 - **Risk management**: max position size, daily drawdown limits, circuit breaker, cooldown, configurable leverage
@@ -97,29 +108,21 @@ All critical failure modes from independent code audits have been addressed:
 - **Encrypted API key storage**: Fernet AES-256 at rest
 - **Multi-tenant trader**: shared executor with per-user isolated sessions
 - **Stripe subscription management**: checkout, webhook, billing portal, plan sync
-- **Real-time bot control** via Redis pub/sub (no polling delay)
+- **Real-time bot control** via Redis pub/sub
 - **Rate limiting**: token bucket per user (60 requests/min)
 - **Admin panel**: user management, plan overview, key status
 
-### Monitoring
-- **Analyst + Trader health monitoring** via Redis heartbeats
-- **Real-time bot logs** streamed to Redis, visible in dashboard
-- **Equity curve chart** with Recharts (auto-updating)
-- **P&L tracking**, win rate, trade history
-- **Notifications**: Telegram + Email (SMTP)
-- **Strategy performance**: per-strategy win rate, P&L, signal count
-- **Portfolio view**: aggregate P&L, pair breakdown, unrealized P&L
-- **CSV export**: streaming CSV for trades and positions
-
-### Platform Features
+### Frontend
+- **Dark-only design** with amber/gold accent, Inter + JetBrains Mono fonts
+- **21 pages**: Landing, Dashboard, Settings, Positions, Trades, Signals, Backtesting, Docs, Changelog, Whitepaper, About, Security, Status, Privacy, Terms, Subscribe, and auth pages
+- **Dashboard**: Real-time P&L, equity curve, open positions, signal history, strategy intelligence (weights, accuracy, backtest scores)
+- **Strategy Performance page**: per-strategy win rate, P&L, signal count + scorer data
+- **Live stats**: landing page displays real user count and total trades from the database
 - **Code splitting**: All routes lazily loaded via `React.lazy` + `Suspense`
-- **Dark/light mode**: `ThemeContext` with localStorage persistence
-- **Toast notifications**: auto-dismiss (4s), 4 types, animated
 - **Loading skeletons**: `Skeleton`, `TableSkeleton`, `CardSkeleton`
 - **Error boundaries**: `ErrorBoundary` wrapping all routes with retry button
-- **Sortable tables**: `SortableTable<T>` with click-to-sort headers
 - **Real-time updates**: WebSocket endpoint (`/ws`) with JWT auth + REST polling fallback
-- **Free trial**: trial period per user with expiry enforcement
+- **Responsive**: full mobile layout with hamburger navigation
 
 ### Account Features
 - **Crypto wallet auth**: SIWE (EIP-4361) for EVM (MetaMask) + Solana (Phantom)
@@ -128,14 +131,12 @@ All critical failure modes from independent code audits have been addressed:
 - **Withdrawal protection**: address whitelist + time-delayed withdrawals
 - **User API keys**: generate/revoke keys for programmatic API access
 - **GDPR compliance**: data export (full JSON) + account deletion
-- **Backtesting UI**: pair + strategy + period selectors
-- **Admin analytics**: user growth, plan breakdown, active bots, total P&L
+- **Backtesting UI**: pair + strategy + period selectors with equity curve chart
 
 ### Trust & Transparency
-- **Real social proof**: Landing page displays live user count and total trades from DB
-- **Terms of Service**, **Privacy Policy**, **Whitepaper**, **Security**, **Changelog**, **About** pages
+- **Live social proof**: Landing page displays live user count and total trades from the database
+- **Full documentation**: Terms of Service, Privacy Policy, Whitepaper, Security, Changelog, About pages
 - **Registered company**: NexTrade AI Ltd., Larnaca, Cyprus
-- **SLA commitment**: Best-effort uptime across all plans
 
 ## Subscription Plans
 
