@@ -45,23 +45,29 @@ class BybitClient(BaseExchangeClient):
         return self._futures
 
     async def validate_credentials(self) -> dict:
-        result = {"spot_ok": False, "futures_ok": False}
+        result = {"spot_ok": False, "futures_ok": False, "error": None}
         try:
             spot = await self._get_spot()
             await spot.fetch_balance()
             result["spot_ok"] = True
-        except AuthenticationError:
-            pass
-        except (NetworkError, ExchangeError):
-            pass
+        except AuthenticationError as e:
+            result["error"] = f"Spot auth failed: {e}"
+            logger.warning("spot_auth_error", error=str(e))
+        except (NetworkError, ExchangeError) as e:
+            result["error"] = f"Spot connection failed: {e}"
+            logger.warning("spot_connection_error", error=str(e))
         try:
             fut = await self._get_futures()
             await fut.fetch_balance()
             result["futures_ok"] = True
-        except AuthenticationError:
-            pass
-        except (NetworkError, ExchangeError):
-            pass
+        except AuthenticationError as e:
+            if not result.get("error"):
+                result["error"] = f"Futures auth failed: {e}"
+            logger.warning("futures_auth_error", error=str(e))
+        except (NetworkError, ExchangeError) as e:
+            if not result.get("error"):
+                result["error"] = f"Futures connection failed: {e}"
+            logger.warning("futures_connection_error", error=str(e))
         return result
 
     async def fetch_balance(self, market: str = "spot") -> dict:
@@ -84,6 +90,7 @@ class BybitClient(BaseExchangeClient):
         stop_loss: Optional[float] = None,
         take_profit: Optional[float] = None,
         market: str = "spot",
+        client_order_id: Optional[str] = None,
     ) -> dict:
         ex = await self._get_spot() if market == "spot" else await self._get_futures()
         await self.rate_limiter.acquire()
@@ -92,6 +99,8 @@ class BybitClient(BaseExchangeClient):
         ccxt_type = "market" if order_type == OrderType.MARKET else "limit"
 
         params: dict = {}
+        if client_order_id:
+            params["clientOrderId"] = client_order_id
         if stop_loss:
             params["stopLoss"] = stop_loss
         if take_profit:

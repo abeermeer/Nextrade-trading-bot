@@ -26,6 +26,7 @@ class BaseExchangeClient(ABC):
         stop_loss: Optional[float] = None,
         take_profit: Optional[float] = None,
         market: str = "spot",
+        client_order_id: Optional[str] = None,
     ) -> dict:
         ...
 

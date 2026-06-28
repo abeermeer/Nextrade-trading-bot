@@ -93,6 +93,7 @@ class TradeRecord(Base):
     fee = Column(Float, default=0.0)
     pnl = Column(Float, nullable=True)
     mode = Column(Enum(BotModeDB), default=BotModeDB.paper)
+    exchange_order_id = Column(String(128), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
 

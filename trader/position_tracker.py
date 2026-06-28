@@ -91,6 +91,9 @@ class PositionTracker:
     def get_all_open_positions(self) -> list[Position]:
         return list(self._positions.values())
 
+    def get_all_open_symbols(self) -> set[str]:
+        return set(self._positions.keys())
+
     def get_closed_positions(self, limit: int = 50) -> list[Position]:
         return self._closed[-limit:]
 

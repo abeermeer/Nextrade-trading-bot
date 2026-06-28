@@ -42,6 +42,7 @@ async def save_trade(
     pnl: Optional[float] = None,
     mode: str = "paper",
     user_id: Optional[int] = None,
+    exchange_order_id: Optional[str] = None,
 ) -> None:
     async with async_session_factory() as session:
         now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -55,6 +56,7 @@ async def save_trade(
             fee=fee,
             pnl=pnl,
             mode=BotModeDB(mode),
+            exchange_order_id=exchange_order_id,
             created_at=now,
         )
         session.add(record)

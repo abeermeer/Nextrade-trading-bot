@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 import signal
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -58,11 +60,12 @@ class UserSession:
             try:
                 api_key = decrypt(user.mexc_api_key)
                 api_secret = decrypt(user.mexc_api_secret)
+                use_sandbox = os.getenv("EXCHANGE_SANDBOX", "false").lower() in ("true", "1", "yes")
                 self.exchange = create_exchange(
                     exchange_name=exchange_name,
                     api_key=api_key,
                     api_secret=api_secret,
-                    use_sandbox=False,
+                    use_sandbox=use_sandbox,
                 )
             except Exception as e:
                 logger.error("exchange_creation_failed", user=user.id, error=str(e))
@@ -75,12 +78,70 @@ class UserSession:
             if result.get("spot_ok") or result.get("futures_ok"):
                 self._exchange_created = True
                 logger.info("exchange_validated", user=self.user_id, spot=result.get("spot_ok"), futures=result.get("futures_ok"))
+                await self.recover_positions()
                 return True
             logger.warning("exchange_validation_failed", user=self.user_id, result=result)
             return False
         except Exception as e:
             logger.error("exchange_validation_error", user=self.user_id, error=str(e))
             return False
+
+    async def recover_positions(self) -> None:
+        if not self.exchange or not self._exchange_created:
+            return
+        try:
+            market_type = "swap" if self.trade_type == "futures" else "spot"
+            positions = await self.exchange.fetch_positions(market_type)
+            for pos in positions:
+                symbol = pos.get("symbol")
+                side_raw = pos.get("side", "long")
+                contracts = float(pos.get("contracts", 0) or pos.get("size", 0))
+                entry = float(pos.get("entryPrice", 0) or pos.get("entry_price", 0))
+                if not symbol or contracts <= 0 or entry <= 0:
+                    continue
+                if self.position_tracker.has_position(symbol):
+                    continue
+                side = OrderSide.BUY if side_raw in ("long", "buy") else OrderSide.SELL
+                stop_loss = float(pos.get("stopLoss", 0) or pos.get("stop_loss", 0)) or None
+                take_profit = float(pos.get("takeProfit", 0) or pos.get("take_profit", 0)) or None
+                self.position_tracker.open_position(
+                    symbol=symbol, side=side, entry_price=entry,
+                    quantity=contracts, stop_loss=stop_loss, take_profit=take_profit,
+                )
+                logger.info("position_recovered", user=self.user_id, symbol=symbol, side=side.value, qty=contracts, price=entry)
+            recovered = len([p for p in positions if float(p.get("contracts", 0) or p.get("size", 0)) > 0])
+            if recovered:
+                logger.info("positions_recovered", user=self.user_id, count=recovered)
+        except Exception as e:
+            logger.error("position_recovery_error", user=self.user_id, error=str(e))
+
+    async def reconcile_positions(self) -> None:
+        if not self.exchange or not self._exchange_created:
+            return
+        try:
+            market_type = "swap" if self.trade_type == "futures" else "spot"
+            exchange_positions = await self.exchange.fetch_positions(market_type)
+            exchange_symbols = set()
+            for pos in exchange_positions:
+                symbol = pos.get("symbol")
+                contracts = float(pos.get("contracts", 0) or pos.get("size", 0))
+                if symbol and contracts > 0:
+                    exchange_symbols.add(symbol)
+            local_symbols = set(self.position_tracker.get_all_open_symbols())
+            closed_by_exchange = local_symbols - exchange_symbols
+            for symbol in closed_by_exchange:
+                logger.warning("position_closed_by_exchange", user=self.user_id, symbol=symbol)
+                pos = self.position_tracker.get_open_position(symbol)
+                if pos:
+                    exit_price = pos.current_price or pos.entry_price
+                    self.position_tracker.close_position(symbol, exit_price, "exchange_closed")
+                    logger.info("position_reconciled_closed", user=self.user_id, symbol=symbol, price=exit_price, pnl=pos.realized_pnl)
+            new_on_exchange = exchange_symbols - local_symbols
+            for symbol in new_on_exchange:
+                logger.info("position_found_on_exchange", user=self.user_id, symbol=symbol)
+            await self.recover_positions()
+        except Exception as e:
+            logger.error("position_reconciliation_error", user=self.user_id, error=str(e))
 
 
 class TraderBot:
@@ -110,6 +171,7 @@ class TraderBot:
         self.heartbeat_timeout = 60
 
         self.sessions: dict[int, UserSession] = {}
+        self._last_known_balance: dict[int, float] = {}
         self._realtime: Optional[RealtimeDataManager] = None
 
         default_key = self.config_loader.get_env("MEXC_API_KEY", "")
@@ -285,6 +347,10 @@ class TraderBot:
         symbol = signal.symbol
         logger.info("signal_received", symbol=symbol, action=signal.action.value, confidence=round(signal.confidence, 3))
         await self._push_log("info", f"Signal: {symbol} {signal.action.value} ({round(signal.confidence*100)}%)", symbol=symbol)
+        live_conf_threshold = self.settings.get("signal_resolution", {}).get("confidence_threshold", 0.5)
+        live_min_signals = self.settings.get("signal_resolution", {}).get("min_signals_required", 2)
+        if signal.confidence < live_conf_threshold:
+            logger.info("signal_below_live_threshold", symbol=symbol, confidence=round(signal.confidence, 3), threshold=live_conf_threshold)
 
         if signal.action == SignalAction.HOLD:
             return
@@ -336,6 +402,33 @@ class TraderBot:
             await self._open_position(session, symbol, signal.price)
             return
 
+    async def _validate_order(self, session: UserSession, symbol: str, quantity: float, price: float) -> bool:
+        notional = quantity * price
+        if notional < 5.0:
+            logger.warning("order_below_min_notional", user=session.user_id, symbol=symbol, notional=notional)
+            return False
+        open_count = session.position_tracker.position_count()
+        hard_cap = 50
+        if open_count >= hard_cap:
+            logger.warning("hard_cap_reached", user=session.user_id, symbol=symbol, count=open_count, cap=hard_cap)
+            return False
+        return True
+
+    async def _get_live_balance(self, session: UserSession) -> float:
+        if not session.exchange or not session._exchange_created:
+            return 0.0
+        try:
+            market_type = "swap" if session.trade_type == "futures" else "spot"
+            bal = await session.exchange.fetch_balance(market_type)
+            free_usdt = bal.get("free_usdt", 0)
+            total_usdt = bal.get("total_usdt", 0)
+            balance = max(free_usdt, total_usdt)
+            self._last_known_balance[session.user_id] = balance
+            return balance
+        except Exception as e:
+            logger.error("balance_fetch_error", user=session.user_id, error=str(e))
+            return self._last_known_balance.get(session.user_id, 0.0)
+
     async def _open_position(self, session: UserSession, symbol: str, price: float) -> None:
         if session.mode == BotMode.PAPER:
             market_prices: dict[str, float] = {symbol: price}
@@ -346,11 +439,14 @@ class TraderBot:
                         market_prices[sym] = pos.entry_price
             available = session.paper_engine.get_total_equity(market_prices)
         else:
-            available = 10000.0
+            available = await self._get_live_balance(session)
 
         quantity = session.risk_manager.calculate_position_size(available, price)
         if quantity <= 0:
             logger.warning("invalid_quantity", user=session.user_id, symbol=symbol)
+            return
+
+        if not await self._validate_order(session, symbol, quantity, price):
             return
 
         sl_pct = 1.5
@@ -364,6 +460,8 @@ class TraderBot:
                 quantity=quantity, price=price, stop_loss=stop_loss, take_profit=take_profit,
             )
             fill_price = order.average_fill_price
+            exchange_order_id = getattr(order, "id", None)
+            fee_amount = 0.001 * fill_price * quantity
         else:
             if not session.exchange or not session._exchange_created:
                 logger.warning("no_exchange_for_user", user=session.user_id)
@@ -371,15 +469,20 @@ class TraderBot:
             market_type = "swap" if session.trade_type == "futures" else "spot"
             if session.trade_type == "futures":
                 try:
-                    await session.exchange.set_leverage(symbol, 10)
+                    leverage = self.settings.get("trader", {}).get("leverage", 10)
+                    await session.exchange.set_leverage(symbol, leverage)
                 except Exception:
                     pass
+            client_id = str(uuid.uuid4())
             result = await session.exchange.create_order(
                 symbol=symbol, side=OrderSide.BUY, order_type=OrderType.MARKET,
                 quantity=quantity, price=price, stop_loss=stop_loss, take_profit=take_profit,
-                market=market_type,
+                market=market_type, client_order_id=client_id,
             )
             fill_price = float(result.get("price", price))
+            exchange_order_id = str(result.get("id", "")) or None
+            fee_info = result.get("fee") if isinstance(result, dict) else None
+            fee_amount = float(fee_info.get("cost", 0)) if isinstance(fee_info, dict) and fee_info.get("cost") else 0.001 * fill_price * quantity
 
         pos = session.position_tracker.open_position(
             symbol=symbol, side=OrderSide.BUY, entry_price=fill_price,
@@ -392,7 +495,8 @@ class TraderBot:
             await save_position(pos, session.mode.value, user_id=session.user_id)
             await save_trade(
                 symbol=symbol, side="buy", price=fill_price, quantity=quantity,
-                fee=0.001 * fill_price * quantity, mode=session.mode.value, user_id=session.user_id,
+                fee=fee_amount, mode=session.mode.value, user_id=session.user_id,
+                exchange_order_id=exchange_order_id,
             )
         except Exception as e:
             logger.error("db_save_trade_error", error=str(e))
@@ -408,21 +512,27 @@ class TraderBot:
             return
 
         if session.mode == BotMode.PAPER:
-            await session.paper_engine.create_order(
+            order = await session.paper_engine.create_order(
                 symbol=symbol, side=OrderSide.SELL, order_type=OrderType.MARKET,
                 quantity=pos.quantity, price=price,
             )
             exit_price = price
+            exchange_order_id = getattr(order, "id", None)
+            sell_fee = 0.001 * exit_price * pos.quantity
         else:
             if not session.exchange or not session._exchange_created:
                 logger.warning("no_exchange_for_user", user=session.user_id)
                 return
             market_type = "swap" if session.trade_type == "futures" else "spot"
+            client_id = str(uuid.uuid4())
             result = await session.exchange.create_order(
                 symbol=symbol, side=OrderSide.SELL, order_type=OrderType.MARKET,
-                quantity=pos.quantity, market=market_type,
+                quantity=pos.quantity, market=market_type, client_order_id=client_id,
             )
             exit_price = float(result.get("price", price))
+            exchange_order_id = str(result.get("id", "")) or None
+            fee_info = result.get("fee") if isinstance(result, dict) else None
+            sell_fee = float(fee_info.get("cost", 0)) if isinstance(fee_info, dict) and fee_info.get("cost") else 0.001 * exit_price * pos.quantity
 
         closed = session.position_tracker.close_position(symbol, exit_price, reason)
         if closed:
@@ -436,13 +546,15 @@ class TraderBot:
                 total_equity = session.paper_engine.get_total_equity(market_prices)
                 session.risk_manager.update_balance(total_equity)
             else:
-                session.risk_manager.update_balance(10000.0)
+                live_bal = await self._get_live_balance(session)
+                session.risk_manager.update_balance(live_bal)
 
             try:
                 await save_trade(
                     symbol=symbol, side="sell", price=exit_price, quantity=pos.quantity,
-                    fee=0.001 * exit_price * pos.quantity, pnl=closed.realized_pnl,
+                    fee=sell_fee, pnl=closed.realized_pnl,
                     mode=session.mode.value, user_id=session.user_id,
+                    exchange_order_id=exchange_order_id,
                 )
             except Exception as e:
                 logger.error("db_save_trade_error", error=str(e))
@@ -488,11 +600,31 @@ class TraderBot:
                             market_prices[sym] = p.entry_price
                     total_equity = session.paper_engine.get_total_equity(market_prices)
                     session.risk_manager.update_balance(total_equity)
+                elif session.mode == BotMode.LIVE and session.exchange and session._exchange_created:
+                    live_bal = await self._get_live_balance(session)
+                    session.risk_manager.update_balance(live_bal)
+                    await session.reconcile_positions()
 
             try:
                 hb = {"status": "alive", "timestamp": now.isoformat(), "mode": "multi"}
                 await self.redis.lpush("heartbeat:trader", json.dumps(hb))
                 await self.redis.ltrim("heartbeat:trader", 0, 9)
+            except Exception:
+                pass
+
+            try:
+                for uid, session_obj in self.sessions.items():
+                    bal = session_obj.risk_manager._last_balance
+                    if bal is not None:
+                        snapshot = {
+                            "user_id": uid,
+                            "balance": bal,
+                            "open_positions": session_obj.position_tracker.position_count(),
+                            "total_realized_pnl": session_obj.position_tracker.get_total_realized_pnl(),
+                            "timestamp": now.isoformat(),
+                        }
+                        await self.redis.lpush(f"balance_snapshots:{uid}", json.dumps(snapshot))
+                        await self.redis.ltrim(f"balance_snapshots:{uid}", 0, 999)
             except Exception:
                 pass
 
