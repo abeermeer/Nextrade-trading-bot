@@ -22,9 +22,6 @@ config/.env
 .DS_Store
 Thumbs.db
 
-# Local session files
-AGENTS.md
-SESSION_SUMMARY.md
 
 # Logs
 logs/
