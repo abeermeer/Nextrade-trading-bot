@@ -196,6 +196,12 @@ export interface AdminAnalytics {
   user_growth: { month: string; new_users: number }[];
 }
 
+export interface StrategyScores {
+  weights: Record<string, number>;
+  accuracy: Record<string, { correct: number; total: number }>;
+  backtest: Record<string, { sharpe: number; win_rate: number; pnl_pct: number; max_drawdown_pct: number; total_trades: number; composite: number; last_run?: string }>;
+}
+
 export type ExchangeName = "mexc" | "binance" | "bybit";
 
 export interface BacktestResult {

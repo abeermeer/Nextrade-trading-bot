@@ -13,11 +13,11 @@ const API_URL = import.meta.env.VITE_API_URL || "https://mexc-trading-bot-produc
 
 function StatusDot({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    operational: "bg-green-400",
-    degraded: "bg-yellow-400",
-    down: "bg-red-400",
+    operational: "bg-positive",
+    degraded: "bg-accent",
+    down: "bg-negative",
   };
-  return <span className={`inline-block w-3 h-3 rounded-full ${colors[status] || "bg-gray-400"} animate-pulse`} />;
+  return <span className={`inline-block w-3 h-3 rounded-full ${colors[status] || "bg-dark-600"} animate-pulse`} />;
 }
 
 export default function StatusPage() {
@@ -84,8 +84,8 @@ export default function StatusPage() {
                   </div>
                   <div className="flex items-center gap-4 text-sm">
                     <span className={`capitalize font-semibold ${
-                      svc.status === "operational" ? "text-green-400" :
-                      svc.status === "degraded" ? "text-yellow-400" : "text-red-400"
+                      svc.status === "operational" ? "text-positive" :
+                      svc.status === "degraded" ? "text-accent" : "text-negative"
                     }`}>{svc.status}</span>
                     {svc.latency > 0 && <span className="text-gray-500">{svc.latency}ms</span>}
                   </div>

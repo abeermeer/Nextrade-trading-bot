@@ -49,10 +49,10 @@ export default function VerifyEmail() {
           )}
           {status === "success" && (
             <div className="space-y-4">
-              <div className="w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center mx-auto">
-                <span className="text-green-400 text-2xl">✓</span>
+              <div className="w-16 h-16 bg-positive/15 border border-positive/20 rounded-full flex items-center justify-center mx-auto">
+                <span className="text-positive text-2xl">✓</span>
               </div>
-              <p className="text-green-400 font-semibold">{message}</p>
+              <p className="text-positive font-semibold">{message}</p>
               <Link to="/login" className="inline-block bg-accent hover:bg-accent-dark text-dark-900 font-bold px-6 py-2.5 rounded-xl transition-all">
                 Go to Login
               </Link>
@@ -60,10 +60,10 @@ export default function VerifyEmail() {
           )}
           {status === "error" && (
             <div className="space-y-4">
-              <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto">
-                <span className="text-red-400 text-2xl">!</span>
+              <div className="w-16 h-16 bg-negative/15 border border-negative/20 rounded-full flex items-center justify-center mx-auto">
+                <span className="text-negative text-2xl">!</span>
               </div>
-              <p className="text-red-400">{message}</p>
+              <p className="text-negative">{message}</p>
               <Link to="/" className="inline-block bg-accent hover:bg-accent-dark text-dark-900 font-bold px-6 py-2.5 rounded-xl transition-all">
                 Go Home
               </Link>

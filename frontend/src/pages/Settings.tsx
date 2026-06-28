@@ -168,12 +168,12 @@ export default function Settings() {
                 {user?.has_api_keys && keysVerified
                   ? <span className="flex items-center gap-1 text-accent text-sm font-semibold"><CheckIcon className="w-4 h-4" /> Verified {spotOk ? "Spot ✓" : ""} {futuresOk ? "Futures ✓" : ""}</span>
                   : user?.has_api_keys && !keysVerified
-                    ? <span className="flex items-center gap-1 text-yellow-400 text-sm font-semibold">⚠️ Not Verified</span>
+                    ? <span className="flex items-center gap-1 text-accent text-sm font-semibold">⚠️ Not Verified</span>
                     : null}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Exchange</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">Exchange</label>
                 <select value={exchange} onChange={(e) => setExchange(e.target.value as ExchangeName)}
                   className="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all text-sm"
                 >
@@ -184,14 +184,14 @@ export default function Settings() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">API Key</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">API Key</label>
                 <input type="text" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
                   className="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 transition-all font-mono text-sm"
                   placeholder={exchange === "mexc" ? "mx0vgl..." : exchange === "binance" ? "Binance API key" : "Bybit API key"} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">API Secret</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">API Secret</label>
                 <input type="password" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)}
                   className="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 transition-all font-mono text-sm"
                   placeholder="••••••••" />
@@ -203,7 +203,7 @@ export default function Settings() {
               </div>
 
               {saveKeys.error && (
-                <p className="text-red-400 text-sm">{(saveKeys.error as { detail?: string })?.detail || "Failed to verify keys. Check your credentials."}</p>
+                <p className="text-negative text-sm">{(saveKeys.error as { detail?: string })?.detail || "Failed to verify keys. Check your credentials."}</p>
               )}
               <button onClick={() => saveKeys.mutate()} disabled={!apiKey || !apiSecret || saveKeys.isPending}
                 className="bg-accent hover:bg-accent-dark text-dark-900 font-bold px-6 py-2.5 rounded-xl transition-all disabled:opacity-40"
@@ -244,7 +244,7 @@ export default function Settings() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">New Address Withdrawal Delay (hours)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">New Address Withdrawal Delay (hours)</label>
                 <div className="flex gap-3">
                   <input type="number" value={withdrawalDelay} onChange={(e) => setWithdrawalDelay(Number(e.target.value))}
                     className="flex-1 bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all"
@@ -259,7 +259,7 @@ export default function Settings() {
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-gray-300">Whitelisted Addresses</span>
+                  <span className="text-sm font-medium text-gray-400">Whitelisted Addresses</span>
                   <button onClick={() => setShowAddAddress(!showAddAddress)}
                     className="text-xs text-accent hover:text-accent-dark font-semibold"
                   >
@@ -309,17 +309,17 @@ export default function Settings() {
                       <tbody>
                         {whitelist.map((entry: WhitelistEntry) => (
                           <tr key={entry.id} className="border-b border-white/5 last:border-0">
-                            <td className="px-3 py-2.5 font-mono text-xs text-gray-300">{entry.address.slice(0, 10)}...{entry.address.slice(-6)}</td>
-                            <td className="px-3 py-2.5 text-gray-300">{entry.network}</td>
-                            <td className="px-3 py-2.5 text-gray-300">{entry.label || "—"}</td>
+                            <td className="px-3 py-2.5 font-mono text-xs text-gray-400">{entry.address.slice(0, 10)}...{entry.address.slice(-6)}</td>
+                            <td className="px-3 py-2.5 text-gray-400">{entry.network}</td>
+                            <td className="px-3 py-2.5 text-gray-400">{entry.label || "—"}</td>
                             <td className="px-3 py-2.5">
-                              <span className={`text-xs font-semibold ${entry.is_approved ? "text-green-400" : "text-yellow-400"}`}>
+                              <span className={`text-xs font-semibold ${entry.is_approved ? "text-green-400" : "text-accent"}`}>
                                 {entry.is_approved ? "Approved" : "Pending"}
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               <button onClick={() => deleteWhitelistMutation.mutate(entry.id)} disabled={deleteWhitelistMutation.isPending}
-                                className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg"
+                                className="text-xs text-negative hover:text-red-300 px-3 py-1.5 rounded-lg"
                               >
                                 Delete
                               </button>
@@ -350,7 +350,7 @@ export default function Settings() {
                   <button key={m} onClick={() => switchMode.mutate(m)}
                     className={`flex-1 py-3 rounded-xl text-sm font-bold capitalize transition-all border ${
                       (user?.mode || "paper") === m
-                        ? m === "live" ? "bg-green-500/20 border-green-500 text-green-400" : "bg-yellow-500/20 border-yellow-500 text-yellow-400"
+                        ? m === "live" ? "bg-positive/20 border-positive text-positive" : "bg-accent/20 border-accent text-accent"
                         : "bg-dark-800 border-white/10 text-gray-400 hover:border-white/20"
                     }`}
                   >
@@ -378,7 +378,7 @@ export default function Settings() {
                   <button key={t} onClick={() => switchTradeType.mutate(t)}
                     className={`flex-1 py-3 rounded-xl text-sm font-bold capitalize transition-all border ${
                       (user?.trade_type || "spot") === t
-                        ? "bg-blue-accent/20 border-blue-accent text-blue-400"
+                        ? "bg-accent/10 border-accent/30 text-accent"
                         : "bg-dark-800 border-white/10 text-gray-400 hover:border-white/20"
                     }`}
                   >
@@ -394,7 +394,7 @@ export default function Settings() {
             <Card className="p-6 space-y-4">
               <h2 className="font-heading font-bold text-lg">Risk Management</h2>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">Max Position Size (USDT)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">Max Position Size (USDT)</label>
                 <div className="flex gap-3">
                   <input type="number" value={maxPos} onChange={(e) => setMaxPos(Number(e.target.value))}
                     className="flex-1 bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all"
@@ -424,7 +424,7 @@ export default function Settings() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {["rsi", "macd_cross", "ema_trend", "volume_breakout", "bollinger_squeeze", "supertrend", "adx", "ichimoku", "pullback", "range", "counter_trend", "stoch_rsi", "psar", "mfi", "vwap"].map((s) => (
-                  <div key={s} className="bg-dark-900/50 border border-white/[0.04] rounded-xl px-4 py-3 text-sm capitalize text-gray-300">
+                  <div key={s} className="bg-dark-900/50 border border-white/[0.04] rounded-xl px-4 py-3 text-sm capitalize text-gray-400">
                     {s}
                   </div>
                 ))}
@@ -493,7 +493,7 @@ export default function Settings() {
                         n.val ? "bg-accent border-accent" : "bg-dark-800 border-white/10"
                       }`}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white transition-transform ${n.val ? "translate-x-5" : "translate-x-0.5"}`} />
+                      <div className={`w-4 h-4 rounded-full bg-gray-300 transition-transform ${n.val ? "translate-x-5" : "translate-x-0.5"}`} />
                     </button>
                   </div>
                 ))}
@@ -520,10 +520,10 @@ export default function Settings() {
               </div>
 
               {generatedKey && (
-                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
-                  <p className="text-yellow-400 text-sm font-semibold mb-2">Key generated — copy it now!</p>
+                <div className="bg-accent/10 border border-accent/20 rounded-xl p-4">
+                  <p className="text-accent text-sm font-semibold mb-2">Key generated — copy it now!</p>
                   <div className="flex gap-2">
-                    <code className="flex-1 bg-dark-900 px-3 py-2 rounded-lg text-xs font-mono text-yellow-300 break-all">{generatedKey}</code>
+                    <code className="flex-1 bg-dark-900 px-3 py-2 rounded-lg text-xs font-mono text-accent break-all">{generatedKey}</code>
                     <button onClick={() => { navigator.clipboard.writeText(generatedKey); addToast("Copied!", "success"); }}
                       className="text-accent hover:text-accent-dark p-2"
                     >
@@ -550,11 +550,11 @@ export default function Settings() {
                   {apiKeysData.api_keys.map((k) => (
                     <div key={k.id} className="flex items-center justify-between bg-dark-900/50 border border-white/[0.04] rounded-xl px-4 py-3">
                       <div>
-                        <span className="text-sm font-mono text-gray-300">{k.key_prefix}...</span>
+                        <span className="text-sm font-mono text-gray-400">{k.key_prefix}...</span>
                         <span className="text-xs text-gray-500 ml-2">{k.name}</span>
                       </div>
                       <button onClick={() => revokeKey.mutate(k.id)}
-                        className="text-red-400 hover:text-red-300 p-1"
+                        className="text-negative hover:text-red-300 p-1"
                       >
                         <TrashIcon className="w-4 h-4" />
                       </button>

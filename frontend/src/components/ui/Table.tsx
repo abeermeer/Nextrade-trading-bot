@@ -19,11 +19,11 @@ interface TableProps<T> {
 export function Table<T>({ columns, data, emptyMessage = "No data" }: TableProps<T>) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-white/5 text-gray-400 text-xs uppercase tracking-wider">
+          <tr className="border-b border-dark-700 text-gray-500 text-xs uppercase tracking-wider">
             {columns.map((col) => (
-              <th key={col.key} className={`text-left px-6 py-4 font-medium ${col.className || ""}`}>
+              <th key={col.key} className={`text-left px-4 py-3 font-medium ${col.className || ""}`}>
                 {col.label}
               </th>
             ))}
@@ -31,9 +31,9 @@ export function Table<T>({ columns, data, emptyMessage = "No data" }: TableProps
         </thead>
         <tbody>
           {data.map((item, i) => (
-            <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03] transition-colors">
+            <tr key={i} className="border-b border-dark-700/50 last:border-0 hover:bg-white/[0.02] transition-colors">
               {columns.map((col) => (
-                <td key={col.key} className={`px-6 py-4 ${col.className || ""}`}>
+                <td key={col.key} className={`px-4 py-3 ${col.className || ""}`}>
                   {col.render(item)}
                 </td>
               ))}
@@ -41,7 +41,7 @@ export function Table<T>({ columns, data, emptyMessage = "No data" }: TableProps
           ))}
           {data.length === 0 && (
             <tr>
-              <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-500">
+              <td colSpan={columns.length} className="px-4 py-10 text-center text-gray-600">
                 {emptyMessage}
               </td>
             </tr>
@@ -82,13 +82,13 @@ export function SortableTable<T>({ columns, data, emptyMessage = "No data" }: Ta
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-white/5 text-gray-400 text-xs uppercase tracking-wider">
+          <tr className="border-b border-dark-700 text-gray-500 text-xs uppercase tracking-wider">
             {columns.map((col) => (
               <th
                 key={col.key}
-                className={`text-left px-6 py-4 font-medium ${col.sortable ? "cursor-pointer select-none hover:text-white" : ""} ${col.className || ""}`}
+                className={`text-left px-4 py-3 font-medium ${col.sortable ? "cursor-pointer select-none hover:text-white" : ""} ${col.className || ""}`}
                 onClick={() => handleSort(col)}
               >
                 <span className="flex items-center gap-1">
@@ -109,9 +109,9 @@ export function SortableTable<T>({ columns, data, emptyMessage = "No data" }: Ta
         </thead>
         <tbody>
           {sorted.map((item, i) => (
-            <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/[0.03] transition-colors">
+            <tr key={i} className="border-b border-dark-700/50 last:border-0 hover:bg-white/[0.02] transition-colors">
               {columns.map((col) => (
-                <td key={col.key} className={`px-6 py-4 ${col.className || ""}`}>
+                <td key={col.key} className={`px-4 py-3 ${col.className || ""}`}>
                   {col.render(item)}
                 </td>
               ))}
@@ -119,7 +119,7 @@ export function SortableTable<T>({ columns, data, emptyMessage = "No data" }: Ta
           ))}
           {sorted.length === 0 && (
             <tr>
-              <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-500">
+              <td colSpan={columns.length} className="px-4 py-10 text-center text-gray-600">
                 {emptyMessage}
               </td>
             </tr>

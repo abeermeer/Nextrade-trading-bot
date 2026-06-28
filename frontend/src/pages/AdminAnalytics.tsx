@@ -44,9 +44,9 @@ export default function AdminAnalytics() {
           <div className="grid md:grid-cols-4 gap-4 mb-8">
             {[
               { label: "Total Users", value: data?.total_users ?? 0, color: "text-accent" },
-              { label: "New (30d)", value: data?.monthly_users ?? 0, color: "text-blue-400" },
-              { label: "Active Bots", value: data?.active_bots ?? 0, color: "text-green-400" },
-              { label: "Total Trades", value: data?.total_trades ?? 0, color: "text-purple-400" },
+              { label: "New (30d)", value: data?.monthly_users ?? 0, color: "text-accent" },
+              { label: "Active Bots", value: data?.active_bots ?? 0, color: "text-positive" },
+              { label: "Total Trades", value: data?.total_trades ?? 0, color: "text-accent" },
             ].map((s, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
                 className="bg-dark-800/40 border border-white/[0.06] rounded-xl p-5"
@@ -65,12 +65,12 @@ export default function AdminAnalytics() {
               <div className="space-y-3">
                 {Object.entries(data?.plan_breakdown || {}).map(([plan, count]) => (
                   <div key={plan} className="flex items-center justify-between">
-                    <span className="text-sm capitalize text-gray-300">{plan}</span>
+                    <span className="text-sm capitalize text-gray-400">{plan}</span>
                     <div className="flex items-center gap-3">
                       <div className="text-sm font-semibold">{count}</div>
                       <div className="w-24 h-2 bg-dark-900 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${
-                          plan === "basic" ? "bg-gray-500" : plan === "pro" ? "bg-accent" : "bg-purple-500"
+                          plan === "basic" ? "bg-dark-600" : plan === "pro" ? "bg-accent" : "bg-accent/60"
                         }`} style={{ width: `${data ? (count / Math.max(data.total_users, 1)) * 100 : 0}%` }} />
                       </div>
                     </div>
@@ -83,7 +83,7 @@ export default function AdminAnalytics() {
               className="bg-dark-800/40 border border-white/[0.06] rounded-2xl p-6"
             >
               <h2 className="font-heading text-lg font-bold mb-4">Total P&L</h2>
-              <div className={`font-heading text-3xl font-bold ${(data?.total_pnl ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+              <div className={`font-heading text-3xl font-bold ${(data?.total_pnl ?? 0) >= 0 ? "text-positive" : "text-negative"}`}>
                 ${(data?.total_pnl ?? 0).toLocaleString()}
               </div>
               <p className="text-gray-500 text-xs mt-1">Across all users and trades</p>

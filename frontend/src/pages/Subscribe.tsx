@@ -91,7 +91,7 @@ export default function Subscribe() {
                   </div>
                   <div className="space-y-3 mb-8">
                     {plan.features.map((f) => (
-                      <div key={f} className="flex items-center gap-3 text-sm text-gray-300">
+                      <div key={f} className="flex items-center gap-3 text-sm text-gray-400">
                         <CheckIcon className="w-4 h-4 text-accent shrink-0" />
                         {f}
                       </div>

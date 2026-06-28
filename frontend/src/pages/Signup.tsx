@@ -43,13 +43,13 @@ export default function Signup() {
 
         <motion.form initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} onSubmit={handleSubmit} className="bg-dark-700/50 border border-white/5 rounded-2xl p-8 space-y-5">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm px-4 py-3 rounded-lg">
+            <div className="bg-negative/15 border border-negative/20 text-negative text-sm px-4 py-3 rounded-lg">
               {error}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Email</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1.5">Email</label>
             <input
               type="email" value={email} onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 transition-all"
@@ -58,7 +58,7 @@ export default function Signup() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1.5">Password</label>
             <input
               type="password" value={password} onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 transition-all"
@@ -67,7 +67,7 @@ export default function Signup() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Plan</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1.5">Plan</label>
             <div className="grid grid-cols-3 gap-2">
               {["basic", "pro", "enterprise"].map((p) => (
                 <button key={p} type="button" onClick={() => setPlan(p)}

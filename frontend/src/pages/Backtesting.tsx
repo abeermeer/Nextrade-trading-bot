@@ -88,7 +88,7 @@ export default function Backtesting() {
             </div>
 
             {result && !isResult(result) && (
-              <div className="mt-6 p-4 rounded-xl text-sm bg-red-500/10 border border-red-500/20 text-red-400">
+              <div className="mt-6 p-4 rounded-xl text-sm bg-negative/15 border border-negative/20 text-negative">
                 {(result as any).message || "Backtest failed"}
               </div>
             )}
@@ -96,19 +96,19 @@ export default function Backtesting() {
             {result && isResult(result) && (
               <div className="mt-8 space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <MetricCard label="Total P&L" value={`$${result.total_pnl.toFixed(2)}`} color={result.total_pnl >= 0 ? "text-green-400" : "text-red-400"} />
-                  <MetricCard label="Return" value={`${result.total_pnl_pct.toFixed(1)}%`} color={result.total_pnl_pct >= 0 ? "text-green-400" : "text-red-400"} />
-                  <MetricCard label="Win Rate" value={`${result.win_rate}%`} color={result.win_rate >= 50 ? "text-green-400" : "text-yellow-400"} />
+                  <MetricCard label="Total P&L" value={`$${result.total_pnl.toFixed(2)}`} color={result.total_pnl >= 0 ? "text-positive" : "text-red-400"} />
+                  <MetricCard label="Return" value={`${result.total_pnl_pct.toFixed(1)}%`} color={result.total_pnl_pct >= 0 ? "text-positive" : "text-red-400"} />
+                  <MetricCard label="Win Rate" value={`${result.win_rate}%`} color={result.win_rate >= 50 ? "text-positive" : "text-accent"} />
                   <MetricCard label="Max Drawdown" value={`${result.max_drawdown_pct.toFixed(1)}%`} color="text-red-400" />
                   <MetricCard label="Total Trades" value={String(result.total_trades)} />
-                  <MetricCard label="Sharpe Ratio" value={result.sharpe_ratio.toFixed(2)} color={result.sharpe_ratio >= 1 ? "text-green-400" : "text-yellow-400"} />
+                  <MetricCard label="Sharpe Ratio" value={result.sharpe_ratio.toFixed(2)} color={result.sharpe_ratio >= 1 ? "text-positive" : "text-accent"} />
                   <MetricCard label="Final Balance" value={`$${result.final_balance.toFixed(2)}`} />
                   <MetricCard label="Period" value={result.period} />
                 </div>
 
                 {result.equity_curve && result.equity_curve.length > 0 && (
                   <div className="bg-dark-900/50 border border-white/[0.04] rounded-xl p-4">
-                    <h3 className="text-sm font-semibold text-gray-300 mb-3">Equity Curve</h3>
+                    <h3 className="text-sm font-semibold text-gray-400 mb-3">Equity Curve</h3>
                     <div className="h-48">
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={result.equity_curve}>
@@ -125,7 +125,7 @@ export default function Backtesting() {
 
                 {result.trades && result.trades.length > 0 && (
                   <div className="bg-dark-900/50 border border-white/[0.04] rounded-xl overflow-hidden">
-                    <h3 className="text-sm font-semibold text-gray-300 px-4 py-3 border-b border-white/[0.04]">Recent Trades</h3>
+                    <h3 className="text-sm font-semibold text-gray-400 px-4 py-3 border-b border-white/[0.04]">Recent Trades</h3>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
@@ -139,12 +139,12 @@ export default function Backtesting() {
                         </thead>
                         <tbody>
                           {result.trades.map((t, i) => (
-                            <tr key={i} className="border-b border-white/5 hover:bg-white/[0.02]">
+                            <tr key={i} className="border-b border-white/5 hover:bg-dark-700/30">
                               <td className="px-4 py-2 text-gray-400 font-mono text-xs">{t.date?.slice(0, 10) || "-"}</td>
                               <td className="px-4 py-2"><Badge variant={t.action === "buy" ? "success" : t.action === "sell" ? "warning" : "default"}>{t.action}</Badge></td>
                               <td className="px-4 py-2 text-right font-mono">${t.price?.toFixed(4) || "-"}</td>
-                              <td className={`px-4 py-2 text-right font-mono ${(t.pnl || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>{t.pnl ? `$${t.pnl.toFixed(2)}` : "-"}</td>
-                              <td className="px-4 py-2 text-right font-mono text-gray-300">${t.balance?.toFixed(2) || "-"}</td>
+                              <td className={`px-4 py-2 text-right font-mono ${(t.pnl || 0) >= 0 ? "text-positive" : "text-red-400"}`}>{t.pnl ? `$${t.pnl.toFixed(2)}` : "-"}</td>
+                              <td className="px-4 py-2 text-right font-mono text-gray-400">${t.balance?.toFixed(2) || "-"}</td>
                             </tr>
                           ))}
                         </tbody>

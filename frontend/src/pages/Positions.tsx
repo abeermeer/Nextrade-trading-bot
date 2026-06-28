@@ -17,7 +17,7 @@ export default function Positions() {
     { key: "current", label: "Current", render: (p: Position) => `$${p.current_price.toFixed(4)}`, className: "hidden md:table-cell" },
     { key: "qty", label: "Qty", render: (p: Position) => p.quantity },
     { key: "pnl", label: "Unrealized P&L", render: (p: Position) => (
-      <span className={`font-medium ${p.unrealized_pnl >= 0 ? "text-accent" : "text-red-400"}`}>
+      <span className={`font-medium ${p.unrealized_pnl >= 0 ? "text-accent" : "text-negative"}`}>
         ${p.unrealized_pnl.toFixed(2)}
       </span>
     )},

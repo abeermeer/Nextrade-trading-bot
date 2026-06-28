@@ -1,1 +1,0 @@
-import{l as e,t}from"./proxy-Pa1Buz8Q.js";var n=e();function r({children:e}){return(0,n.jsx)(t.div,{initial:{opacity:0,y:12},animate:{opacity:1,y:0},exit:{opacity:0,y:-12},transition:{duration:.25,ease:`easeOut`},children:e})}export{r as t};

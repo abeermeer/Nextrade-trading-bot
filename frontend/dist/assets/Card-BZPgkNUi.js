@@ -1,1 +1,0 @@
-import{l as e}from"./proxy-Pa1Buz8Q.js";var t=e();function n({children:e,className:n=``,hover:r=!1}){return(0,t.jsx)(`div`,{className:`bg-dark-700/50 border border-white/5 rounded-2xl ${r?`hover:border-accent/20 transition-all`:``} ${n}`,children:e})}function r({children:e,className:n=``}){return(0,t.jsx)(`div`,{className:`p-6 ${n}`,children:e})}export{r as n,n as t};

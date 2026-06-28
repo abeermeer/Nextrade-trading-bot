@@ -186,6 +186,9 @@ export const api = {
   revokeApiKey: (keyId: number) =>
     request<{ success: boolean }>(`/api/user/api-keys/${keyId}`, { method: "DELETE" }),
 
+  // Strategy scores
+  strategyScores: () => request<import("../types").StrategyScores>("/api/user/strategy-scores"),
+
   // Trial
   trialStatus: () => request<{ trial_end: string | null; is_expired: boolean; remaining_days: number; plan: string }>("/api/user/trial-status"),
 

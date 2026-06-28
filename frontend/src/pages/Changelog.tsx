@@ -50,8 +50,8 @@ const releases = [
 
 const typeStyles: Record<string, string> = {
   feature: "bg-accent/10 text-accent border-accent/20",
-  improvement: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  fix: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+  improvement: "bg-dark-600/30 text-gray-400 border-dark-600",
+  fix: "bg-negative/10 text-negative border-negative/20",
 };
 
 export default function Changelog() {
@@ -66,7 +66,7 @@ export default function Changelog() {
           </div>
 
           <div className="relative">
-            <div className="absolute left-[19px] top-0 bottom-0 w-px bg-white/[0.06]" />
+            <div className="absolute left-[19px] top-0 bottom-0 w-px bg-dark-700/40" />
             {releases.map((release, ri) => (
               <motion.div key={ri} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                 className="relative pl-12 pb-12 last:pb-0"
@@ -85,7 +85,7 @@ export default function Changelog() {
                         <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold border capitalize ${typeStyles[c.type] || typeStyles.feature}`}>
                           {c.type}
                         </span>
-                        <span className="text-gray-300">{c.text}</span>
+                        <span className="text-gray-400">{c.text}</span>
                       </li>
                     ))}
                   </ul>

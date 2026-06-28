@@ -234,6 +234,47 @@ async def delete_user_data(
     return {"detail": "All personal data deleted. Account anonymized."}
 
 
+@router.get("/user/strategy-scores")
+async def get_strategy_scores(
+    _user: UserRecord = Depends(_get_db_user),
+):
+    try:
+        from shared.redis_client import create_redis_client
+        rc = create_redis_client()
+        await rc.connect()
+
+        weights_raw = await rc.get("strategy:weights:dynamic")
+        weights = {}
+        if weights_raw:
+            try:
+                weights = json.loads(weights_raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        accuracy = {}
+        for name in list(weights.keys()):
+            raw = await rc.get(f"strategy:accuracy:{name}")
+            if raw:
+                try:
+                    accuracy[name] = json.loads(raw)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        backtest = {}
+        for name in list(weights.keys()):
+            raw = await rc.get(f"strategy:backtest:{name}")
+            if raw:
+                try:
+                    backtest[name] = json.loads(raw)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        await rc.disconnect()
+        return {"weights": weights, "accuracy": accuracy, "backtest": backtest}
+    except Exception as e:
+        return {"weights": {}, "accuracy": {}, "backtest": {}, "error": str(e)}
+
+
 @router.get("/user/strategy-config")
 async def get_strategy_config(
     user: UserRecord = Depends(_get_db_user),
