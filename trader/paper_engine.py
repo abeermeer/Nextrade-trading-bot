@@ -118,10 +118,10 @@ class PaperEngine:
             balance=round(self.balance, 2),
         )
 
-    async def update_price(self, symbol: str, price: float) -> None:
+    async def update_price(self, symbol: str, price: float) -> Optional[str]:
         pos = self.positions.get(symbol)
         if not pos:
-            return
+            return None
 
         if pos.stop_loss and price <= pos.stop_loss:
             logger.info("paper_stop_loss_triggered", symbol=symbol, price=price)
@@ -135,6 +135,7 @@ class PaperEngine:
                 ),
                 price,
             )
+            return symbol
         elif pos.take_profit and price >= pos.take_profit:
             logger.info("paper_take_profit_triggered", symbol=symbol, price=price)
             await self._fill_market(
@@ -147,6 +148,8 @@ class PaperEngine:
                 ),
                 price,
             )
+            return symbol
+        return None
 
     def get_unrealized_pnl(self, symbol: str, current_price: float) -> float:
         pos = self.positions.get(symbol)

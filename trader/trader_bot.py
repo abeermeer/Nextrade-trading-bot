@@ -277,7 +277,21 @@ class TraderBot:
     async def _on_price_update(self, symbol: str, price: float) -> None:
         for session in self.sessions.values():
             session.position_tracker.update_price(symbol, price)
-            await session.paper_engine.update_price(symbol, price)
+            closed = await session.paper_engine.update_price(symbol, price)
+            if closed:
+                pos = session.position_tracker.get_open_position(symbol)
+                if pos:
+                    session.position_tracker.close_position(symbol, price, "sl_tp")
+                    pnl = pos.realized_pnl
+                    logger.info("paper_position_closed_by_sltp", user=session.user_id, symbol=symbol, price=price, pnl=pnl)
+                    try:
+                        await save_trade(
+                            symbol=symbol, side="sell", price=price, quantity=pos.quantity,
+                            fee=0.001 * price * pos.quantity, pnl=pnl,
+                            mode=session.mode.value, user_id=session.user_id,
+                        )
+                    except Exception as e:
+                        logger.error("db_save_trade_error_sltp", user=session.user_id, symbol=symbol, error=str(e))
 
     async def start(self) -> None:
         self._running = True
