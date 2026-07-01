@@ -75,6 +75,8 @@ app.add_middleware(
         "https://dist-rho-sandy-41.vercel.app",
         "https://mexc-trading-bot-production-c215.up.railway.app",
     ],
+    # Allow any Vercel deployment/preview URL (each deploy gets a unique *.vercel.app host)
+    allow_origin_regex=r"https://[a-z0-9-]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
