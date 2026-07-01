@@ -199,7 +199,8 @@ export default function Settings() {
 
               <div className="text-xs text-gray-500 space-y-1">
                 <p>Keys are encrypted at rest using AES-256</p>
-                <p>Enable <strong>Spot & Margin Trading</strong> and <strong>Read-only</strong> permissions on your exchange</p>
+                <p>Enable <strong>Spot & Margin Trading</strong> and <strong>Read</strong> permissions on your exchange</p>
+                <p className="text-amber-400/90">For your safety, create a <strong>trade-only</strong> key with <strong>withdrawals disabled</strong>. NexTrade never needs withdrawal access.</p>
               </div>
 
               {saveKeys.error && (

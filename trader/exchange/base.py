@@ -80,7 +80,9 @@ class BaseExchangeClient(ABC):
         ...
 
     @abstractmethod
-    async def set_leverage(self, symbol: str, leverage: int, market: str = "swap") -> None:
+    async def set_leverage(self, symbol: str, leverage: int, market: str = "swap") -> bool:
+        """Set leverage. Returns True on success, False on failure. Callers MUST
+        abort the trade when this returns False — never trade at unknown leverage."""
         ...
 
     @abstractmethod
@@ -101,4 +103,16 @@ class BaseExchangeClient(ABC):
 
     @abstractmethod
     async def fetch_positions(self, market: str = "swap") -> list[dict]:
+        ...
+
+    @abstractmethod
+    async def fetch_funding_rate(self, symbol: str) -> Optional[float]:
+        """Current funding rate for a perpetual symbol (e.g. 0.0001 = 0.01%). None if unavailable."""
+        ...
+
+    @abstractmethod
+    async def fetch_my_trades(
+        self, symbol: Optional[str] = None, since: Optional[int] = None, market: str = "spot"
+    ) -> list[dict]:
+        """Executed trades from the exchange ledger, for audit reconciliation."""
         ...

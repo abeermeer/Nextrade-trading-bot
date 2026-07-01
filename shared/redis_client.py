@@ -115,6 +115,16 @@ class RedisClient:
             raise RuntimeError("Redis not connected")
         await self._pub.rpush(key, value)
 
+    async def lpop(self, key: str) -> Optional[str]:
+        if not self._pub:
+            raise RuntimeError("Redis not connected")
+        return await self._pub.lpop(key)
+
+    async def llen(self, key: str) -> int:
+        if not self._pub:
+            raise RuntimeError("Redis not connected")
+        return await self._pub.llen(key)
+
     async def lrange(self, key: str, start: int, stop: int) -> list[str]:
         if not self._pub:
             raise RuntimeError("Redis not connected")

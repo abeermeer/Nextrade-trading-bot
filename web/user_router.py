@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,6 +48,24 @@ async def update_exchange_keys(
     user: UserRecord = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    # Stricter rate limit on credential writes (5/min) than the global 60/min, to
+    # avoid repeated failed validations tripping exchange-side lockouts / brute force.
+    try:
+        rc = create_redis_client()
+        await rc.connect()
+        window = int(datetime.now(timezone.utc).timestamp()) // 60
+        rlkey = f"ratelimit:exchangekeys:{user.id}:{window}"
+        cnt = await rc.get(rlkey)
+        if cnt and int(cnt) >= 5:
+            await rc.disconnect()
+            raise HTTPException(status_code=429, detail="Too many key updates. Wait a minute and try again.")
+        await rc.set(rlkey, str(int(cnt or 0) + 1), ttl=120)
+        await rc.disconnect()
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
     exchange_name = data.exchange.lower()
     client = create_exchange(api_key=data.api_key, api_secret=data.api_secret, exchange_name=exchange_name, use_sandbox=False)
     try:
@@ -62,7 +81,8 @@ async def update_exchange_keys(
         raise HTTPException(
             status_code=400,
             detail=f"{exchange_name.upper()} API key verification failed. Check your key and secret at {domain}. "
-                   "Ensure Spot & Margin Trading and Read-only permissions are enabled."
+                   "Enable Spot & Margin Trading (and Futures if used) and Read permissions. "
+                   "For your safety, create a TRADE-ONLY key with WITHDRAWALS DISABLED."
         )
 
     from db.models import ExchangeDB
@@ -129,6 +149,39 @@ async def control_bot(
     except Exception:
         pass
     return {"success": True, "bot_active": user.bot_active}
+
+
+@router.post("/flatten")
+async def flatten_self(
+    user: UserRecord = Depends(get_current_user),
+):
+    """Panic button: cancel all open orders and market-close all open positions for
+    the calling user. The trader process performs the flatten and writes the result
+    to Redis key flatten_result:{user_id}."""
+    try:
+        rc = create_redis_client()
+        await rc.connect()
+        await rc.publish("bot:control", {"user_id": user.id, "action": "flatten"})
+        await rc.disconnect()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not reach trader: {e}")
+    return {"success": True, "message": "Flatten command sent", "user_id": user.id}
+
+
+@router.post("/admin/users/{user_id}/flatten")
+async def admin_flatten_user(
+    user_id: int,
+    admin: UserRecord = Depends(get_admin_user),
+):
+    """Admin kill switch: cancel all orders and close all positions for any user."""
+    try:
+        rc = create_redis_client()
+        await rc.connect()
+        await rc.publish("bot:control", {"user_id": user_id, "action": "flatten"})
+        await rc.disconnect()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not reach trader: {e}")
+    return {"success": True, "message": f"Flatten command sent for user {user_id}", "user_id": user_id}
 
 
 @router.get("/bot/status")

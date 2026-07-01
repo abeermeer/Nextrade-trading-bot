@@ -162,14 +162,16 @@ class BinanceClient(BaseExchangeClient):
         await self.rate_limiter.acquire()
         return await ex.fetch_open_orders(symbol)
 
-    async def set_leverage(self, symbol: str, leverage: int, market: str = "swap") -> None:
+    async def set_leverage(self, symbol: str, leverage: int, market: str = "swap") -> bool:
         ex = await self._get_futures() if market == "swap" else await self._get_spot()
         await self.rate_limiter.acquire()
         try:
             await ex.set_leverage(leverage, symbol)
             logger.info("leverage_set", symbol=symbol, leverage=leverage)
+            return True
         except Exception as e:
             logger.warning("leverage_set_failed", symbol=symbol, error=str(e))
+            return False
 
     async def set_position_mode(self, hedged: bool = False) -> None:
         ex = await self._get_futures()
@@ -201,3 +203,25 @@ class BinanceClient(BaseExchangeClient):
         ex = await self._get_futures()
         await self.rate_limiter.acquire()
         return await ex.fetch_positions()
+
+    async def fetch_funding_rate(self, symbol: str) -> Optional[float]:
+        ex = await self._get_futures()
+        await self.rate_limiter.acquire()
+        try:
+            data = await ex.fetch_funding_rate(symbol)
+            rate = data.get("fundingRate") if isinstance(data, dict) else None
+            return float(rate) if rate is not None else None
+        except Exception as e:
+            logger.warning("funding_rate_fetch_failed", symbol=symbol, error=str(e))
+            return None
+
+    async def fetch_my_trades(
+        self, symbol: Optional[str] = None, since: Optional[int] = None, market: str = "spot"
+    ) -> list[dict]:
+        ex = await self._get_spot() if market == "spot" else await self._get_futures()
+        await self.rate_limiter.acquire()
+        try:
+            return await ex.fetch_my_trades(symbol, since)
+        except Exception as e:
+            logger.warning("fetch_my_trades_failed", symbol=symbol, error=str(e))
+            return []

@@ -8,7 +8,7 @@ from typing import Optional
 
 from db.repository import save_trade, save_position
 from db.database import async_session_factory
-from db.models import UserRecord, BotModeDB, TradeTypeDB
+from db.models import UserRecord, BotModeDB, TradeTypeDB, TradeRecord
 from shared.config_loader import ConfigLoader
 from shared.logger import get_logger
 from shared.models import (
@@ -30,11 +30,33 @@ from shared.encryption import decrypt
 
 logger = get_logger(__name__)
 
+FAILED_TRADES_KEY = "failed_trades:pending"
+FAILED_TRADES_DEAD_KEY = "failed_trades:dead"
+MAX_TRADE_RETRIES = 10
+
+
+async def _push_failed_trade(redis: Optional[RedisClient], trade_kwargs: dict) -> None:
+    """Dead-letter a save_trade payload that failed to persist, so a background
+    retry loop can re-attempt the DB write. A live order that filled but never
+    hit the ledger is a silent money-losing gap — never drop it."""
+    if redis is None:
+        logger.error("dlq_no_redis_trade_lost", symbol=trade_kwargs.get("symbol"))
+        return
+    try:
+        payload = dict(trade_kwargs)
+        payload["failed_at"] = datetime.now(timezone.utc).isoformat()
+        payload["attempts"] = 0
+        await redis.rpush(FAILED_TRADES_KEY, json.dumps(payload, default=str))
+        logger.warning("trade_dead_lettered", symbol=trade_kwargs.get("symbol"))
+    except Exception as e:
+        logger.error("dlq_push_failed", error=str(e), symbol=trade_kwargs.get("symbol"))
+
 
 class UserSession:
-    def __init__(self, user: UserRecord):
+    def __init__(self, user: UserRecord, redis_client: Optional[RedisClient] = None):
         self.user_id = user.id
         self.email = user.email
+        self.redis = redis_client
         self.mode = BotMode(user.mode.value)
         self.trade_type = user.trade_type.value
         self.max_position = user.max_position_usdt
@@ -141,14 +163,18 @@ class UserSession:
                     exit_price = pos.current_price or pos.entry_price
                     self.position_tracker.close_position(symbol, exit_price, "exchange_closed")
                     logger.info("position_reconciled_closed", user=self.user_id, symbol=symbol, price=exit_price, pnl=pos.realized_pnl)
+                    # exchange-side close (SL/TP fired on the exchange) — no order id from our side,
+                    # pass None explicitly so the ledger shows this was not a bot-initiated sell.
+                    trade_kwargs = dict(
+                        symbol=symbol, side="sell", price=exit_price, quantity=pos.quantity,
+                        fee=0.001 * exit_price * pos.quantity, pnl=pos.realized_pnl,
+                        mode=self.mode.value, user_id=self.user_id, exchange_order_id=None,
+                    )
                     try:
-                        await save_trade(
-                            symbol=symbol, side="sell", price=exit_price, quantity=pos.quantity,
-                            fee=0.001 * exit_price * pos.quantity, pnl=pos.realized_pnl,
-                            mode=self.mode.value, user_id=self.user_id,
-                        )
+                        await save_trade(**trade_kwargs)
                     except Exception as e:
                         logger.error("db_save_trade_error_reconciliation", user=self.user_id, symbol=symbol, error=str(e))
+                        await _push_failed_trade(self.redis, trade_kwargs)
             new_on_exchange = exchange_symbols - local_symbols
             for symbol in new_on_exchange:
                 logger.info("position_found_on_exchange", user=self.user_id, symbol=symbol)
@@ -222,7 +248,7 @@ class TraderBot:
         for u in users:
             active_ids.add(u.id)
             if u.id not in self.sessions:
-                session_obj = UserSession(u)
+                session_obj = UserSession(u, redis_client=self.redis)
                 self.sessions[u.id] = session_obj
                 logger.info("user_session_created", user=u.id, email=u.email, mode=u.mode.value)
                 if u.mode == BotModeDB.live and u.mexc_keys_verified:
@@ -250,11 +276,14 @@ class TraderBot:
                 user = result.scalar_one_or_none()
             if action == "start" and user:
                 if user_id not in self.sessions:
-                    session_obj = UserSession(user)
+                    session_obj = UserSession(user, redis_client=self.redis)
                     self.sessions[user_id] = session_obj
                     logger.info("user_session_created_realtime", user=user_id)
                     if user.mode == BotModeDB.live and user.mexc_keys_verified:
                         asyncio.create_task(session_obj.validate_exchange())
+            elif action == "flatten":
+                summary = await self.flatten_user(user_id)
+                logger.info("flatten_command_handled", user=user_id, closed=len(summary.get("closed", [])))
             elif action == "stop":
                 old = self.sessions.pop(user_id, None)
                 if old:
@@ -284,14 +313,16 @@ class TraderBot:
                     session.position_tracker.close_position(symbol, price, "sl_tp")
                     pnl = pos.realized_pnl
                     logger.info("paper_position_closed_by_sltp", user=session.user_id, symbol=symbol, price=price, pnl=pnl)
+                    trade_kwargs = dict(
+                        symbol=symbol, side="sell", price=price, quantity=pos.quantity,
+                        fee=0.001 * price * pos.quantity, pnl=pnl,
+                        mode=session.mode.value, user_id=session.user_id, exchange_order_id=None,
+                    )
                     try:
-                        await save_trade(
-                            symbol=symbol, side="sell", price=price, quantity=pos.quantity,
-                            fee=0.001 * price * pos.quantity, pnl=pnl,
-                            mode=session.mode.value, user_id=session.user_id,
-                        )
+                        await save_trade(**trade_kwargs)
                     except Exception as e:
                         logger.error("db_save_trade_error_sltp", user=session.user_id, symbol=symbol, error=str(e))
+                        await _push_failed_trade(self.redis, trade_kwargs)
 
     async def start(self) -> None:
         self._running = True
@@ -320,6 +351,8 @@ class TraderBot:
         logger.info("trader_bot_started", session_count=len(self.sessions))
 
         monitor_task = asyncio.create_task(self._monitor_loop())
+        asyncio.create_task(self._retry_failed_trades_loop())
+        asyncio.create_task(self._daily_ledger_recon_loop())
         asyncio.create_task(self.redis.subscribe(self.control_channel, self._handle_control))
         await self.redis.subscribe(self.signal_channel, self._handle_signal)
         await monitor_task
@@ -497,11 +530,37 @@ class TraderBot:
                 return
             market_type = "swap" if session.trade_type == "futures" else "spot"
             if session.trade_type == "futures":
-                try:
-                    leverage = self.settings.get("trader", {}).get("leverage", 10)
-                    await session.exchange.set_leverage(symbol, leverage)
-                except Exception as e:
-                    logger.warning("set_leverage_error", user=session.user_id, symbol=symbol, error=str(e))
+                trader_cfg = self.settings.get("trader", {})
+                leverage = trader_cfg.get("leverage", 10)
+
+                # #5 Funding-rate guard — avoid opening into an expensive funding interval
+                funding_max = trader_cfg.get("funding_rate_max_abs", 0.001)
+                funding_block = trader_cfg.get("funding_rate_block", False)
+                funding_rate = await session.exchange.fetch_funding_rate(symbol)
+                if funding_rate is not None and abs(funding_rate) > funding_max:
+                    if funding_block:
+                        logger.error("funding_rate_too_high_aborting", user=session.user_id, symbol=symbol, funding_rate=funding_rate, threshold=funding_max)
+                        await self._push_log("warning", f"Skip {symbol}: funding {funding_rate*100:.3f}% over limit", user=session.user_id, symbol=symbol)
+                        return
+                    logger.warning("funding_rate_high", user=session.user_id, symbol=symbol, funding_rate=funding_rate, threshold=funding_max)
+
+                # #1 Leverage abort — set_leverage returns False on failure; never trade at unknown leverage
+                leverage_ok = await session.exchange.set_leverage(symbol, leverage)
+                if not leverage_ok:
+                    logger.error("set_leverage_failed_aborting_trade", user=session.user_id, symbol=symbol, leverage=leverage)
+                    await self._push_log("error", f"Aborted {symbol}: could not set leverage {leverage}x", user=session.user_id, symbol=symbol)
+                    return
+
+                # #6 Liquidation-distance guard — stop-loss must trigger before liquidation
+                if trader_cfg.get("liquidation_guard_enabled", True) and leverage > 1 and price > 0:
+                    maint = trader_cfg.get("maintenance_margin_pct", 0.005)
+                    liq_price = price * (1 - (1 / leverage) + maint)
+                    sl_distance = abs(price - stop_loss) / price
+                    liq_distance = abs(price - liq_price) / price
+                    if sl_distance >= liq_distance:
+                        logger.error("sl_beyond_liquidation_aborting", user=session.user_id, symbol=symbol, leverage=leverage, stop_loss=stop_loss, liq_price=liq_price, sl_distance=round(sl_distance, 4), liq_distance=round(liq_distance, 4))
+                        await self._push_log("error", f"Aborted {symbol}: stop-loss beyond liquidation at {leverage}x", user=session.user_id, symbol=symbol)
+                        return
             client_id = str(uuid.uuid4())
             result = await session.exchange.create_order(
                 symbol=symbol, side=OrderSide.BUY, order_type=OrderType.MARKET,
@@ -520,15 +579,17 @@ class TraderBot:
         session.risk_manager.record_trade(symbol)
         await self._push_log("info", f"BUY {symbol} @ {fill_price} qty={quantity:.4f}", user=session.user_id, symbol=symbol)
 
+        trade_kwargs = dict(
+            symbol=symbol, side="buy", price=fill_price, quantity=quantity,
+            fee=fee_amount, mode=session.mode.value, user_id=session.user_id,
+            exchange_order_id=exchange_order_id,
+        )
         try:
             await save_position(pos, session.mode.value, user_id=session.user_id)
-            await save_trade(
-                symbol=symbol, side="buy", price=fill_price, quantity=quantity,
-                fee=fee_amount, mode=session.mode.value, user_id=session.user_id,
-                exchange_order_id=exchange_order_id,
-            )
+            await save_trade(**trade_kwargs)
         except Exception as e:
             logger.error("db_save_trade_error", error=str(e))
+            await _push_failed_trade(self.redis, trade_kwargs)
 
         notifier = self._get_notifier()
         await notifier.send_trade_notification(
@@ -578,20 +639,144 @@ class TraderBot:
                 live_bal = await self._get_live_balance(session)
                 session.risk_manager.update_balance(live_bal)
 
+            trade_kwargs = dict(
+                symbol=symbol, side="sell", price=exit_price, quantity=pos.quantity,
+                fee=sell_fee, pnl=closed.realized_pnl,
+                mode=session.mode.value, user_id=session.user_id,
+                exchange_order_id=exchange_order_id,
+            )
             try:
-                await save_trade(
-                    symbol=symbol, side="sell", price=exit_price, quantity=pos.quantity,
-                    fee=sell_fee, pnl=closed.realized_pnl,
-                    mode=session.mode.value, user_id=session.user_id,
-                    exchange_order_id=exchange_order_id,
-                )
+                await save_trade(**trade_kwargs)
             except Exception as e:
                 logger.error("db_save_trade_error", error=str(e))
+                await _push_failed_trade(self.redis, trade_kwargs)
 
             notifier = self._get_notifier()
             await notifier.send_trade_notification(
                 symbol=symbol, action="sell", price=exit_price, quantity=pos.quantity, pnl=closed.realized_pnl,
             )
+
+    async def _retry_failed_trades_loop(self) -> None:
+        """Re-attempt DB writes for trades that failed to persist (dead-letter queue).
+        A filled order that never reached the ledger must never be silently dropped."""
+        while self._running:
+            try:
+                count = await self.redis.llen(FAILED_TRADES_KEY)
+                for _ in range(count):
+                    raw = await self.redis.lpop(FAILED_TRADES_KEY)
+                    if not raw:
+                        break
+                    try:
+                        payload = json.loads(raw)
+                    except Exception:
+                        continue
+                    attempts = int(payload.pop("attempts", 0))
+                    payload.pop("failed_at", None)
+                    try:
+                        await save_trade(**payload)
+                        logger.info("failed_trade_recovered", symbol=payload.get("symbol"), attempts=attempts)
+                    except Exception as e:
+                        attempts += 1
+                        if attempts >= MAX_TRADE_RETRIES:
+                            logger.error("failed_trade_exhausted_dead_letter", symbol=payload.get("symbol"), attempts=attempts, error=str(e))
+                            await self.redis.rpush(FAILED_TRADES_DEAD_KEY, json.dumps({**payload, "attempts": attempts, "last_error": str(e)}, default=str))
+                        else:
+                            payload["attempts"] = attempts
+                            await self.redis.rpush(FAILED_TRADES_KEY, json.dumps(payload, default=str))
+            except Exception as e:
+                logger.error("retry_failed_trades_loop_error", error=str(e))
+            await asyncio.sleep(30)
+
+    async def _daily_ledger_recon_loop(self) -> None:
+        """Once per UTC day (persisted across restarts), reconcile each live user's
+        exchange trade history against the local ledger. Detect-and-alert only."""
+        while self._running:
+            try:
+                today = datetime.now(timezone.utc).date().isoformat()
+                last = await self.redis.get("ledger_recon:last_run_date")
+                if last != today:
+                    await self.redis.set("ledger_recon:last_run_date", today)
+                    await self._run_ledger_reconciliation()
+            except Exception as e:
+                logger.error("daily_ledger_recon_error", error=str(e))
+            await asyncio.sleep(3600)
+
+    async def _run_ledger_reconciliation(self) -> None:
+        from sqlalchemy import select
+        start_of_yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        since_ms = int(start_of_yesterday.timestamp() * 1000)
+        total_mismatch = 0
+        for uid, session in list(self.sessions.items()):
+            if session.mode != BotMode.LIVE or not session.exchange or not session._exchange_created:
+                continue
+            try:
+                market_type = "spot" if session.trade_type == "spot" else "swap"
+                exchange_trades = await session.exchange.fetch_my_trades(since=since_ms, market=market_type)
+                # match on order id — our ledger stores exchange_order_id (the order id, not fill id)
+                exchange_ids = {str(t.get("order")) for t in exchange_trades if t.get("order")}
+                if not exchange_ids:
+                    continue
+                async with async_session_factory() as db:
+                    result = await db.execute(
+                        select(TradeRecord.exchange_order_id).where(
+                            TradeRecord.user_id == uid,
+                            TradeRecord.created_at >= start_of_yesterday.replace(tzinfo=None),
+                        )
+                    )
+                    db_ids = {str(r[0]) for r in result.all() if r[0]}
+                missing_in_db = exchange_ids - db_ids
+                if missing_in_db:
+                    total_mismatch += len(missing_in_db)
+                    logger.error("ledger_mismatch_detected", user=uid, missing_count=len(missing_in_db), missing_ids=list(missing_in_db)[:20])
+                    await self._push_log("error", f"Ledger mismatch user {uid}: {len(missing_in_db)} exchange trades missing from DB", user=uid)
+            except Exception as e:
+                logger.error("ledger_recon_user_error", user=uid, error=str(e))
+        try:
+            snapshot = {"mismatch_count": total_mismatch, "checked_at": datetime.now(timezone.utc).isoformat()}
+            await self.redis.set("ledger_health", json.dumps(snapshot))
+        except Exception:
+            pass
+        logger.info("ledger_reconciliation_complete", total_mismatch=total_mismatch)
+
+    async def flatten_user(self, user_id: int) -> dict:
+        """Kill switch: cancel all open orders and market-close every open position
+        for one user. Returns a summary of what was actioned."""
+        session = self.sessions.get(user_id)
+        if not session:
+            logger.warning("flatten_no_session", user=user_id)
+            return {"user_id": user_id, "found": False, "cancelled_orders": False, "closed": [], "errors": ["no active session"]}
+
+        summary = {"user_id": user_id, "found": True, "cancelled_orders": False, "closed": [], "errors": []}
+
+        if session.exchange and session._exchange_created:
+            try:
+                await session.exchange.cancel_all_orders()
+                summary["cancelled_orders"] = True
+                logger.info("flatten_orders_cancelled", user=user_id)
+            except Exception as e:
+                summary["errors"].append(f"cancel_all_orders: {e}")
+                logger.error("flatten_cancel_error", user=user_id, error=str(e))
+
+        for symbol in list(session.position_tracker.get_all_open_symbols()):
+            pos = session.position_tracker.get_open_position(symbol)
+            if not pos:
+                continue
+            try:
+                # _close_position places the live sell order (live mode) or closes the
+                # paper position, and records the trade — one path, no double orders.
+                await self._close_position(session, symbol, pos.current_price or pos.entry_price, "flatten")
+                summary["closed"].append(symbol)
+                logger.info("flatten_position_closed", user=user_id, symbol=symbol)
+            except Exception as e:
+                summary["errors"].append(f"{symbol}: {e}")
+                logger.error("flatten_close_error", user=user_id, symbol=symbol, error=str(e))
+
+        await self._push_log("warning", f"FLATTEN executed for user {user_id}: closed {len(summary['closed'])} positions", user=user_id)
+        try:
+            await self.redis.set(f"flatten_result:{user_id}", json.dumps(summary, default=str), ttl=3600)
+        except Exception:
+            pass
+        return summary
 
     async def _monitor_loop(self) -> None:
         async def heartbeat_callback(data: dict) -> None:

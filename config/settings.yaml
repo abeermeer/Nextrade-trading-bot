@@ -43,6 +43,12 @@ trader:
   default_tp_pct: 5.0
   min_volume_usdt: 10000
   stale_signal_timeout_seconds: 300
+  leverage: 10
+  # Futures safety guards
+  funding_rate_max_abs: 0.001      # abort/warn if |funding rate| exceeds this per interval (0.001 = 0.1%)
+  funding_rate_block: false        # true = block trade on breach, false = warn only
+  maintenance_margin_pct: 0.005    # exchange maintenance margin used for liquidation estimate (0.5%)
+  liquidation_guard_enabled: true  # abort if stop-loss sits at/beyond estimated liquidation price
 
 exchange:
   name: mexc

@@ -261,13 +261,11 @@ async def update_settings(data: dict):
 
 
 # --- Manual Override ---
-@router.post("/override")
-async def manual_override(data: dict):
-    action = data.get("action")
-    symbol = data.get("symbol", "")
-    if action not in ("buy", "sell", "close_all", "emergency_stop"):
-        raise HTTPException(status_code=400, detail=f"Invalid action: {action}")
-    return {"success": True, "action": action, "symbol": symbol}
+# NOTE: the previous /api/override endpoint was a no-op stub (returned success but
+# executed nothing) and had no authentication. It has been removed. Real position
+# control is served by the authenticated flatten endpoints in web/user_router.py:
+#   POST /api/user/flatten                       (current user, panic button)
+#   POST /api/user/admin/users/{user_id}/flatten (admin, any user)
 
 
 # --- Debug ---
