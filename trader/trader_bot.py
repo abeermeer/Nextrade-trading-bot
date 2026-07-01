@@ -157,6 +157,11 @@ class UserSession:
     async def reconcile_positions(self) -> None:
         if not self.exchange or not self._exchange_created:
             return
+        # Spot has no exchange-side positions endpoint — fetch_positions hits the
+        # futures API and returns "No permission" for spot-only keys. Nothing to
+        # reconcile for spot holdings, so skip (avoids error spam + wasted calls).
+        if self.trade_type == "spot":
+            return
         try:
             market_type = "swap" if self.trade_type == "futures" else "spot"
             exchange_positions = await self.exchange.fetch_positions(market_type)
@@ -356,7 +361,7 @@ class TraderBot:
             asyncio.create_task(self._realtime.start(
                 symbols=["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "XRP/USDT",
                          "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "DOT/USDT", "LINK/USDT",
-                         "MATIC/USDT", "UNI/USDT", "SHIB/USDT", "LTC/USDT", "ATOM/USDT",
+                         "POL/USDT", "UNI/USDT", "SHIB/USDT", "LTC/USDT", "ATOM/USDT",
                          "ETC/USDT", "XLM/USDT", "FIL/USDT", "TRX/USDT", "NEAR/USDT"],
             ))
 
@@ -573,7 +578,7 @@ class TraderBot:
                         logger.error("sl_beyond_liquidation_aborting", user=session.user_id, symbol=symbol, leverage=leverage, stop_loss=stop_loss, liq_price=liq_price, sl_distance=round(sl_distance, 4), liq_distance=round(liq_distance, 4))
                         await self._push_log("error", f"Aborted {symbol}: stop-loss beyond liquidation at {leverage}x", user=session.user_id, symbol=symbol)
                         return
-            client_id = str(uuid.uuid4())
+            client_id = uuid.uuid4().hex  # 32 chars — MEXC rejects >32-char clientOrderId
             result = await session.exchange.create_order(
                 symbol=symbol, side=OrderSide.BUY, order_type=OrderType.MARKET,
                 quantity=quantity, price=price, stop_loss=stop_loss, take_profit=take_profit,
@@ -626,7 +631,7 @@ class TraderBot:
                 logger.warning("no_exchange_for_user", user=session.user_id)
                 return
             market_type = "swap" if session.trade_type == "futures" else "spot"
-            client_id = str(uuid.uuid4())
+            client_id = uuid.uuid4().hex  # 32 chars — MEXC rejects >32-char clientOrderId
             result = await session.exchange.create_order(
                 symbol=symbol, side=OrderSide.SELL, order_type=OrderType.MARKET,
                 quantity=pos.quantity, market=market_type, client_order_id=client_id,
