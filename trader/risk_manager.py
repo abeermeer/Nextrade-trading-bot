@@ -104,7 +104,7 @@ class RiskManager:
         return True, "ok"
 
     def calculate_position_size(self, balance: float, price: float) -> float:
-        size = min(self.max_position_size_usdt, balance * 0.1)
+        size = min(self.max_position_size_usdt, balance * 0.8)  # TEMP live-test: 10%->80% (revert)
         quantity = size / price
         logger.debug(
             "position_size_calculated",

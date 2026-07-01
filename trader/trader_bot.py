@@ -464,7 +464,7 @@ class TraderBot:
 
     async def _validate_order(self, session: UserSession, symbol: str, quantity: float, price: float) -> bool:
         notional = quantity * price
-        if notional < 5.0:
+        if notional < 0.5:  # TEMP live-test: $5->$0.50 floor (revert)
             logger.warning("order_below_min_notional", user=session.user_id, symbol=symbol, notional=notional)
             return False
         open_count = session.position_tracker.position_count()
