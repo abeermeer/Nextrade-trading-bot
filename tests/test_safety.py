@@ -169,3 +169,22 @@ class TestFlattenNoSession:
         result = await bot.flatten_user(999)
         assert result["found"] is False
         assert result["closed"] == []
+
+
+# --- Risk baseline seeding (small live balance) ---------------------------
+
+class TestRiskBaselineSeeding:
+    def test_small_live_balance_does_not_trip_circuit_breaker(self):
+        # default initial_balance=10000; a $6 balance must NOT read as a drawdown
+        rm = RiskManager()
+        rm.update_balance(6.0)
+        can, reason = rm.can_trade("BTC/USDT")
+        assert can is True, reason
+
+    def test_drawdown_still_protects_relative_to_real_balance(self):
+        rm = RiskManager(circuit_breaker_drawdown_pct=10.0)
+        rm.update_balance(6.0)   # baseline seeded to real $6
+        rm.update_balance(5.0)   # 5 <= 6*0.9 -> breaker trips
+        can, reason = rm.can_trade("BTC/USDT")
+        assert can is False
+        assert "ircuit" in reason

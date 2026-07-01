@@ -55,6 +55,13 @@ class RiskManager:
 
     def update_balance(self, current_balance: float) -> None:
         self._check_date_reset()
+        # First observed balance seeds the baseline (peak + initial) from the REAL
+        # account balance. Otherwise a small live balance (e.g. $6) is measured
+        # against the constructor default ($10k) and instantly trips the circuit
+        # breaker as a fake ~99% drawdown, blocking every trade.
+        if self._last_balance is None:
+            self.initial_balance = current_balance
+            self.peak_balance = current_balance
         self._last_balance = current_balance
         if self._daily_start_balance is None:
             self._daily_start_balance = current_balance
