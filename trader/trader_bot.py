@@ -106,6 +106,18 @@ class UserSession:
                 except Exception as e:
                     logger.warning("markets_load_error", user=self.user_id, error=str(e))
                 await self.recover_positions()
+                # Seed the risk manager from the REAL balance as soon as keys are
+                # validated in live mode, so the circuit-breaker baseline matches the
+                # actual account (not the $10k default) and small balances can trade.
+                try:
+                    market_type = "swap" if self.trade_type == "futures" else "spot"
+                    bal = await self.exchange.fetch_balance(market_type)
+                    real_bal = max(bal.get("free_usdt", 0) or 0, bal.get("total_usdt", 0) or 0)
+                    if real_bal > 0:
+                        self.risk_manager.update_balance(real_bal)
+                        logger.info("risk_baseline_seeded", user=self.user_id, balance=real_bal)
+                except Exception as e:
+                    logger.warning("risk_baseline_seed_failed", user=self.user_id, error=str(e))
                 return True
             logger.warning("exchange_validation_failed", user=self.user_id, result=result)
             return False
