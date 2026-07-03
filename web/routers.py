@@ -79,7 +79,8 @@ async def get_stats(session: AsyncSession = Depends(get_session)):
     total = await session.execute(select(func.count(UserRecord.id)))
     total_users = total.scalar() or 0
 
-    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    # naive UTC — created_at is TIMESTAMP WITHOUT TIME ZONE; asyncpg rejects tz-aware
+    week_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=7)
     this_week = await session.execute(
         select(func.count(UserRecord.id)).where(UserRecord.created_at >= week_ago)
     )
