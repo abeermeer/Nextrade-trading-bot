@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +26,7 @@ class UserSettingsRequest(BaseModel):
     mode: str = "paper"
     trade_type: str = "spot"
     max_position_usdt: float = 500.0
+    paper_balance_usdt: Optional[float] = None
 
 
 class BotActionRequest(BaseModel):
@@ -118,8 +120,54 @@ async def update_settings(
     if data.trade_type in ("spot", "futures"):
         user.trade_type = TradeTypeDB(data.trade_type)
     user.max_position_usdt = data.max_position_usdt
+    if data.paper_balance_usdt is not None and data.paper_balance_usdt > 0:
+        user.paper_balance_usdt = data.paper_balance_usdt
     await session.commit()
-    return {"success": True, "mode": user.mode.value, "trade_type": user.trade_type.value}
+    return {
+        "success": True,
+        "mode": user.mode.value,
+        "trade_type": user.trade_type.value,
+        "paper_balance_usdt": user.paper_balance_usdt,
+    }
+
+
+@router.post("/reset-demo")
+async def reset_demo(user: UserRecord = Depends(get_current_user)):
+    """Clear DEMO (paper) results only — paper trades + paper positions + signals.
+    LIVE trades/positions are untouched."""
+    from db.repository import reset_demo_data
+    result = await reset_demo_data()
+    return {"success": True, **result}
+
+
+@router.get("/balance")
+async def get_live_balance(user: UserRecord = Depends(get_current_user)):
+    """Live wallet balance fetched straight from the connected exchange
+    (MEXC/Binance/Bybit). Used by the dashboard in live mode."""
+    exchange_name = user.exchange.value if hasattr(user.exchange, "value") else (user.exchange or "mexc")
+    if not user.mexc_api_key or not user.mexc_api_secret:
+        return {"connected": False, "exchange": exchange_name, "balance": 0.0, "currency": "USDT",
+                "detail": "No API keys set"}
+    from shared.encryption import decrypt
+    market = "swap" if (user.trade_type.value if hasattr(user.trade_type, "value") else user.trade_type) == "futures" else "spot"
+    client = create_exchange(
+        api_key=decrypt(user.mexc_api_key), api_secret=decrypt(user.mexc_api_secret),
+        exchange_name=exchange_name, use_sandbox=False,
+    )
+    try:
+        bal = await client.fetch_balance(market)
+        await client.close()
+        free = float(bal.get("free_usdt", 0) or 0)
+        total = float(bal.get("total_usdt", 0) or 0)
+        return {"connected": True, "exchange": exchange_name, "market": market,
+                "free": free, "total": total, "balance": max(free, total), "currency": "USDT"}
+    except Exception as e:
+        try:
+            await client.close()
+        except Exception:
+            pass
+        return {"connected": False, "exchange": exchange_name, "balance": 0.0, "currency": "USDT",
+                "detail": f"Could not fetch balance: {e}"}
 
 
 @router.post("/bot")

@@ -72,7 +72,7 @@ class UserSession:
             circuit_breaker_drawdown_pct=10.0,
             cooldown_seconds=300,
         )
-        self.paper_engine = PaperEngine()
+        self.paper_engine = PaperEngine(initial_balance_usdt=getattr(user, "paper_balance_usdt", None) or 10000.0)
         self.exchange: Optional["BaseExchangeClient"] = None
         self._exchange_created = False
 

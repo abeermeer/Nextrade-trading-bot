@@ -22,6 +22,7 @@ export default function Settings() {
   const [spotOk, setSpotOk] = useState(false);
   const [futuresOk, setFuturesOk] = useState(false);
   const [maxPos, setMaxPos] = useState(user?.max_position_usdt || 500);
+  const [demoBalance, setDemoBalance] = useState<number>(10000);
   const [withdrawalDelay, setWithdrawalDelay] = useState(24);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddress, setNewAddress] = useState("");
@@ -62,6 +63,17 @@ export default function Settings() {
   const saveMaxPos = useMutation({
     mutationFn: () => api.updateSettings({ mode: user?.mode || "paper", trade_type: user?.trade_type || "spot", max_position_usdt: maxPos }),
     onSuccess: () => {},
+  });
+
+  const saveDemoBalance = useMutation({
+    mutationFn: () => api.updateSettings({ mode: user?.mode || "paper", trade_type: user?.trade_type || "spot", max_position_usdt: maxPos, paper_balance_usdt: demoBalance }),
+    onSuccess: () => addToast(`Demo balance set to $${demoBalance.toLocaleString()}`, "success"),
+  });
+
+  const resetDemo = useMutation({
+    mutationFn: api.resetDemo,
+    onSuccess: (d) => addToast(`Demo reset — cleared ${d.trades_deleted} trades, ${d.positions_deleted} positions`, "success"),
+    onError: () => addToast("Reset failed", "error"),
   });
 
   const { data: whitelist, refetch: refetchWhitelist } = useQuery({
@@ -408,6 +420,38 @@ export default function Settings() {
                 </div>
               </div>
               <p className="text-xs text-gray-500">Maximum USDT value per single trade position. Plan limit: ${user?.max_position_usdt?.toFixed(0) || "500"}</p>
+            </Card>
+          </motion.div>
+
+          {/* Paper / Demo Trading */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+            <Card className="p-6 space-y-4">
+              <h2 className="font-heading font-bold text-lg">Paper / Demo Trading</h2>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">Demo Starting Balance (USDT)</label>
+                <div className="flex gap-3">
+                  <input type="number" value={demoBalance} onChange={(e) => setDemoBalance(Number(e.target.value))}
+                    className="flex-1 bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-accent/50 transition-all"
+                    min={10} step={100} />
+                  <button onClick={() => saveDemoBalance.mutate()} disabled={saveDemoBalance.isPending}
+                    className="bg-accent hover:bg-accent-dark text-dark-900 font-bold px-6 py-2.5 rounded-xl transition-all disabled:opacity-40"
+                  >
+                    {saveDemoBalance.isPending ? "..." : "Save"}
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1.5">Virtual balance the paper bot trades with. Takes effect on next bot start (paper mode).</p>
+              </div>
+              <div className="border-t border-white/10 pt-4">
+                <label className="block text-sm font-medium text-gray-400 mb-1.5">Reset Demo Results</label>
+                <button
+                  onClick={() => { if (window.confirm("Clear ALL demo (paper) trades, positions and signals? Live trades are kept.")) resetDemo.mutate(); }}
+                  disabled={resetDemo.isPending}
+                  className="bg-negative/15 hover:bg-negative/25 text-negative font-bold px-6 py-2.5 rounded-xl transition-all disabled:opacity-40 border border-negative/30"
+                >
+                  {resetDemo.isPending ? "Clearing…" : "Reset Demo Data"}
+                </button>
+                <p className="text-xs text-gray-500 mt-1.5">Wipes paper P&L, trades, positions and old signals. Live account is untouched.</p>
+              </div>
             </Card>
           </motion.div>
 

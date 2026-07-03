@@ -109,6 +109,7 @@ export interface UserSettings {
   mode: BotMode;
   trade_type: TradeType;
   max_position_usdt: number;
+  paper_balance_usdt?: number;
 }
 
 export interface ExchangeKeys {

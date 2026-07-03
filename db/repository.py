@@ -1,10 +1,29 @@
 from datetime import datetime, timezone
 from typing import Any, Optional
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import async_session_factory
 from db.models import SignalRecord, PositionRecord, TradeRecord, SignalActionDB, OrderSideDB, OrderStatusDB, BotModeDB
 from shared.models import Signal, Position, BotMode
+
+_signal_counter = 0
+SIGNAL_RETENTION = 2000  # keep the signals table small so DB queries (and login) stay fast
+
+
+async def reset_demo_data() -> dict:
+    """Clear DEMO results only: all paper trades + paper positions, plus the signals
+    table (ephemeral, regenerates). LIVE trades/positions are kept."""
+    async with async_session_factory() as session:
+        t = await session.execute(delete(TradeRecord).where(TradeRecord.mode == BotModeDB.paper))
+        p = await session.execute(delete(PositionRecord).where(PositionRecord.mode == BotModeDB.paper))
+        s = await session.execute(delete(SignalRecord))
+        await session.commit()
+        return {
+            "trades_deleted": t.rowcount or 0,
+            "positions_deleted": p.rowcount or 0,
+            "signals_deleted": s.rowcount or 0,
+        }
 
 
 def _json_safe(obj: Any) -> Any:
@@ -18,6 +37,7 @@ def _json_safe(obj: Any) -> Any:
 
 
 async def save_signal(signal: Signal, timeframe: Optional[str] = None) -> None:
+    global _signal_counter
     async with async_session_factory() as session:
         record = SignalRecord(
             symbol=signal.symbol,
@@ -31,6 +51,21 @@ async def save_signal(signal: Signal, timeframe: Optional[str] = None) -> None:
         )
         session.add(record)
         await session.commit()
+        # Cap the signals table so it never bloats the DB (unbounded inserts otherwise
+        # slow every query, including login). Trim occasionally, not every insert.
+        _signal_counter += 1
+        if _signal_counter % 25 == 0:
+            try:
+                await session.execute(
+                    text(
+                        "DELETE FROM signals WHERE id NOT IN "
+                        "(SELECT id FROM signals ORDER BY created_at DESC LIMIT :keep)"
+                    ),
+                    {"keep": SIGNAL_RETENTION},
+                )
+                await session.commit()
+            except Exception:
+                pass
 
 
 async def save_trade(

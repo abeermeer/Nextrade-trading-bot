@@ -73,6 +73,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ action }),
     }),
+  resetDemo: () =>
+    request<{ success: boolean; trades_deleted: number; positions_deleted: number; signals_deleted: number }>(
+      "/api/user/reset-demo",
+      { method: "POST" }
+    ),
+  liveBalance: () =>
+    request<{ connected: boolean; exchange: string; market?: string; free?: number; total?: number; balance: number; currency: string; detail?: string }>(
+      "/api/user/balance"
+    ),
   botStatus: () => request<import("../types").BotControlStatus>("/api/user/bot/status"),
 
   // Email

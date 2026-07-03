@@ -27,6 +27,12 @@ export default function Dashboard() {
   const { data: botLogs } = useQuery({ queryKey: ["botLogs"], queryFn: api.botLogs, refetchInterval: 5000 });
   const { data: _portfolio } = useQuery({ queryKey: ["portfolio"], queryFn: api.portfolio, refetchInterval: 15000 });
   const { data: strategyScores } = useQuery({ queryKey: ["strategyScores"], queryFn: api.strategyScores, refetchInterval: 60000 });
+  const { data: liveBalance } = useQuery({
+    queryKey: ["liveBalance"],
+    queryFn: api.liveBalance,
+    refetchInterval: 20000,
+    enabled: (user?.mode ?? "paper") === "live",
+  });
   const portfolio = _portfolio as import("../types").PortfolioStats | undefined;
 
   const onWSMessage = useCallback((msg: { type: string; data: unknown }) => {
@@ -257,6 +263,31 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Live wallet balance (live mode only) */}
+        {(user?.mode ?? "paper") === "live" && (
+          <Card>
+            <CardContent className="py-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-600 mb-1">
+                  Live Wallet Balance · {(liveBalance?.exchange ?? user?.exchange ?? "mexc").toString().toUpperCase()}
+                </div>
+                {liveBalance?.connected ? (
+                  <div className="text-2xl font-bold tabular-nums text-accent">
+                    ${liveBalance.balance.toFixed(2)} <span className="text-sm text-gray-500">{liveBalance.currency}</span>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    {liveBalance?.detail || "Fetching from exchange…"}
+                  </div>
+                )}
+              </div>
+              <Badge variant={liveBalance?.connected ? "buy" : "hold"}>
+                {liveBalance?.connected ? "Connected" : "Not connected"}
+              </Badge>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

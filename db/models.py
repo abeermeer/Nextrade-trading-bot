@@ -124,6 +124,7 @@ class UserRecord(Base):
     mexc_api_secret = Column(String(512), nullable=True)
     mode = Column(Enum(BotModeDB), default=BotModeDB.paper)
     trade_type = Column(Enum(TradeTypeDB), default=TradeTypeDB.spot)
+    paper_balance_usdt = Column(Float, default=10000.0)
     plan = Column(Enum(PlanTypeDB), default=PlanTypeDB.basic)
     exchange = Column(Enum(ExchangeDB), default=ExchangeDB.mexc)
     bot_active = Column(Boolean, default=False)
