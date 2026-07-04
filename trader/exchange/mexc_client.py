@@ -24,6 +24,22 @@ class MEXCClient(BaseExchangeClient):
         self._api_secret = api_secret
         self._use_sandbox = use_sandbox
         self._markets: dict[str, dict] = {}
+        self._leverage_cache: set[str] = set()  # symbols whose leverage is already set
+
+    def _futures_symbol(self, symbol: str) -> Optional[str]:
+        """Map a spot-style symbol (X/USDT) to the MEXC linear-perp symbol (X/USDT:USDT),
+        returning it only if that futures market actually exists. None = not on futures."""
+        m = self._markets.get(symbol)
+        if m and m.get("swap"):
+            return symbol
+        cand = symbol if ":" in symbol else f"{symbol}:USDT"
+        cm = self._markets.get(cand)
+        if cm and cm.get("swap"):
+            return cand
+        return None
+
+    def has_futures_market(self, symbol: str) -> bool:
+        return self._futures_symbol(symbol) is not None
 
     async def load_markets(self) -> None:
         spot = await self._get_spot()
@@ -113,11 +129,19 @@ class MEXCClient(BaseExchangeClient):
         await self.rate_limiter.acquire()
         await self._ensure_markets_loaded()
 
+        # Futures uses the linear-perp symbol (X/USDT:USDT); spot uses X/USDT as-is.
+        order_symbol = symbol
+        if market != "spot":
+            fsym = self._futures_symbol(symbol)
+            if not fsym:
+                raise ExchangeError(f"No MEXC futures market for {symbol}")
+            order_symbol = fsym
+
         ccxt_side = side.value
         ccxt_type = "market" if order_type == OrderType.MARKET else "limit"
 
-        qty_rounded = self.round_amount(symbol, quantity)
-        price_rounded = self.round_price(symbol, price)
+        qty_rounded = self.round_amount(order_symbol, quantity)
+        price_rounded = self.round_price(order_symbol, price)
 
         params: dict = {}
 
@@ -130,7 +154,7 @@ class MEXCClient(BaseExchangeClient):
 
         logger.info(
             "order_created",
-            symbol=symbol,
+            symbol=order_symbol,
             side=side.value,
             type=ccxt_type,
             qty=qty_rounded,
@@ -139,7 +163,7 @@ class MEXCClient(BaseExchangeClient):
         )
 
         order = await ex.create_order(
-            symbol=symbol,
+            symbol=order_symbol,
             type=ccxt_type,
             side=ccxt_side,
             amount=qty_rounded,
@@ -165,25 +189,26 @@ class MEXCClient(BaseExchangeClient):
         return await ex.fetch_open_orders(symbol)
 
     async def set_leverage(self, symbol: str, leverage: int, market: str = "swap") -> bool:
-        ex = await self._get_futures() if market == "swap" else await self._get_spot()
+        await self._ensure_markets_loaded()
+        fsym = self._futures_symbol(symbol)
+        if not fsym:
+            logger.debug("no_futures_market", symbol=symbol)
+            return False
+        if fsym in self._leverage_cache:  # already set — skip the API call (avoids rate limits)
+            return True
+        ex = await self._get_futures()
         await self.rate_limiter.acquire()
         # MEXC futures setLeverage needs openType (1=isolated, 2=cross) + positionType
-        # (1=long, 2=short). Bot only opens longs → isolated + long.
-        params = {"openType": 1, "positionType": 1}
+        # (1=long, 2=short). Bot only opens longs → isolated + long. Single call (no retry
+        # — the double-call was tripping MEXC rate limits during signal bursts).
         try:
-            await ex.set_leverage(leverage, symbol, params)
-            logger.info("leverage_set", symbol=symbol, leverage=leverage)
+            await ex.set_leverage(leverage, fsym, {"openType": 1, "positionType": 1})
+            self._leverage_cache.add(fsym)
+            logger.info("leverage_set", symbol=fsym, leverage=leverage)
             return True
         except Exception as e:
-            logger.warning("leverage_set_failed", symbol=symbol, error=str(e))
-            # Retry with cross margin (some symbols/accounts reject isolated)
-            try:
-                await ex.set_leverage(leverage, symbol, {"openType": 2, "positionType": 1})
-                logger.info("leverage_set", symbol=symbol, leverage=leverage, mode="cross")
-                return True
-            except Exception as e2:
-                logger.warning("leverage_set_failed", symbol=symbol, error=str(e2))
-                return False
+            logger.warning("leverage_set_failed", symbol=fsym, error=str(e))
+            return False
 
     async def set_position_mode(self, hedged: bool = False) -> None:
         ex = await self._get_futures()
@@ -217,10 +242,13 @@ class MEXCClient(BaseExchangeClient):
         return await ex.fetch_positions()
 
     async def fetch_funding_rate(self, symbol: str) -> Optional[float]:
+        fsym = self._futures_symbol(symbol)
+        if not fsym:
+            return None
         ex = await self._get_futures()
         await self.rate_limiter.acquire()
         try:
-            data = await ex.fetch_funding_rate(symbol)
+            data = await ex.fetch_funding_rate(fsym)
             rate = data.get("fundingRate") if isinstance(data, dict) else None
             return float(rate) if rate is not None else None
         except Exception as e:

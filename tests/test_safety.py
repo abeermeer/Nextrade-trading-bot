@@ -17,10 +17,10 @@ class FakeCcxt:
         self._raises = raises
         self.leverage_calls = []
 
-    async def set_leverage(self, leverage, symbol):
+    async def set_leverage(self, leverage, symbol, params=None):
         if self._raises:
             raise RuntimeError("exchange rejected leverage")
-        self.leverage_calls.append((leverage, symbol))
+        self.leverage_calls.append((leverage, symbol, params))
 
 
 class FakeRedis:
@@ -42,6 +42,9 @@ class FakeExchange:
         self._leverage_ok = leverage_ok
         self._funding_rate = funding_rate
         self.create_order_called = False
+
+    def has_futures_market(self, symbol):
+        return True
 
     async def fetch_balance(self, market="spot"):
         return {"free_usdt": 10000.0, "total_usdt": 10000.0, "used_usdt": 0.0}
@@ -80,20 +83,35 @@ def _bot(settings):
 
 # --- #1 leverage returns bool ---------------------------------------------
 
+def _seed_futures_market(client):
+    client._markets_loaded = True
+    client._markets = {"BTC/USDT:USDT": {"swap": True}}
+
+
 class TestSetLeverageBool:
     @pytest.mark.asyncio
     async def test_returns_true_on_success(self):
         client = MEXCClient(api_key="k", api_secret="s")
+        _seed_futures_market(client)
         fake = FakeCcxt(raises=False)
         client._get_futures = lambda: _coro(fake)
         assert await client.set_leverage("BTC/USDT", 10) is True
+        assert "BTC/USDT:USDT" in client._leverage_cache  # cached after set
 
     @pytest.mark.asyncio
     async def test_returns_false_on_failure(self):
         client = MEXCClient(api_key="k", api_secret="s")
+        _seed_futures_market(client)
         fake = FakeCcxt(raises=True)
         client._get_futures = lambda: _coro(fake)
         assert await client.set_leverage("BTC/USDT", 10) is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_not_on_futures(self):
+        client = MEXCClient(api_key="k", api_secret="s")
+        client._markets_loaded = True
+        client._markets = {}  # no futures market
+        assert await client.set_leverage("KAZAR/USDT", 10) is False
 
 
 async def _coro(val):

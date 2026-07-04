@@ -547,6 +547,11 @@ class TraderBot:
                 return
             market_type = "swap" if session.trade_type == "futures" else "spot"
             if session.trade_type == "futures":
+                # Skip symbols that aren't listed on the exchange's futures market — the
+                # analyst emits many spot-only symbols. Skip silently (no abort spam / API call).
+                if not session.exchange.has_futures_market(symbol):
+                    logger.debug("symbol_not_on_futures", user=session.user_id, symbol=symbol)
+                    return
                 trader_cfg = self.settings.get("trader", {})
                 leverage = trader_cfg.get("leverage", 10)
 

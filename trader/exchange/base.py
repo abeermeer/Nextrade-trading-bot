@@ -22,6 +22,11 @@ class BaseExchangeClient(ABC):
             await self.load_markets()
             self._markets_loaded = True
 
+    def has_futures_market(self, symbol: str) -> bool:
+        """Whether this symbol is tradeable on the exchange's futures/swap market.
+        Overridden by clients that filter (MEXC); default True for the others."""
+        return True
+
     def round_amount(self, symbol: str, amount: float) -> float:
         market = self._get_market(symbol, "spot") or self._get_market(symbol, "swap")
         if not market:
