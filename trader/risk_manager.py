@@ -111,7 +111,9 @@ class RiskManager:
         return True, "ok"
 
     def calculate_position_size(self, balance: float, price: float) -> float:
-        size = min(self.max_position_size_usdt, balance * 0.1)
+        # 20% of balance per trade — 10% left tiny accounts (~$50) below the $5 min-notional
+        # floor (and MEXC's own futures minimum), so no order ever cleared.
+        size = min(self.max_position_size_usdt, balance * 0.2)
         quantity = size / price
         logger.debug(
             "position_size_calculated",

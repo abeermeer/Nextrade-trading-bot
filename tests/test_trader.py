@@ -127,7 +127,7 @@ class TestRiskManager:
     def test_position_size_calculation(self):
         rm = RiskManager(max_position_size_usdt=1000.0)
         qty = rm.calculate_position_size(5000.0, 50000.0)
-        assert qty == 0.01  # min(1000, 500) = 500 / 50000 = 0.01
+        assert qty == 0.02  # min(1000, 5000*0.2=1000) = 1000 / 50000 = 0.02
 
     def test_position_size_limited_by_max(self):
         rm = RiskManager(max_position_size_usdt=1000.0)
