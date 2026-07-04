@@ -593,8 +593,8 @@ class TraderBot:
                 quantity=quantity, price=price, stop_loss=stop_loss, take_profit=take_profit,
                 market=market_type, client_order_id=client_id,
             )
-            fill_price = float(result.get("price", price))
-            exchange_order_id = str(result.get("id", "")) or None
+            fill_price = float(result.get("price") or price)  # futures market orders return price=None
+            exchange_order_id = str(result.get("id") or "") or None
             fee_info = result.get("fee") if isinstance(result, dict) else None
             fee_amount = float(fee_info.get("cost", 0)) if isinstance(fee_info, dict) and fee_info.get("cost") else 0.001 * fill_price * quantity
 
@@ -645,8 +645,8 @@ class TraderBot:
                 symbol=symbol, side=OrderSide.SELL, order_type=OrderType.MARKET,
                 quantity=pos.quantity, market=market_type, client_order_id=client_id,
             )
-            exit_price = float(result.get("price", price))
-            exchange_order_id = str(result.get("id", "")) or None
+            exit_price = float(result.get("price") or price)  # futures market orders return price=None
+            exchange_order_id = str(result.get("id") or "") or None
             fee_info = result.get("fee") if isinstance(result, dict) else None
             sell_fee = float(fee_info.get("cost", 0)) if isinstance(fee_info, dict) and fee_info.get("cost") else 0.001 * exit_price * pos.quantity
 
