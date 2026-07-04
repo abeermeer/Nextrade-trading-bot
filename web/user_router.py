@@ -156,11 +156,27 @@ async def get_live_balance(user: UserRecord = Depends(get_current_user)):
     )
     try:
         bal = await client.fetch_balance(market)
-        await client.close()
         free = float(bal.get("free_usdt", 0) or 0)
         total = float(bal.get("total_usdt", 0) or 0)
+        wallet = max(free, total)
+        equity = wallet
+        upnl = 0.0
+        # Futures: MEXC's "Equity Value" = wallet balance + unrealized PnL on open positions.
+        # fetch_balance total is the wallet only, so add unrealized to match the MEXC app.
+        if market == "swap":
+            try:
+                positions = await client.fetch_positions("swap")
+                upnl = sum(
+                    float(p.get("unrealizedPnl") or (p.get("info") or {}).get("unrealizedPnl") or 0)
+                    for p in positions if isinstance(p, dict)
+                )
+                equity = wallet + upnl
+            except Exception:
+                pass
+        await client.close()
         return {"connected": True, "exchange": exchange_name, "market": market,
-                "free": free, "total": total, "balance": max(free, total), "currency": "USDT"}
+                "free": free, "total": total, "unrealized_pnl": round(upnl, 4),
+                "balance": round(equity, 2), "currency": "USDT"}
     except Exception as e:
         try:
             await client.close()
