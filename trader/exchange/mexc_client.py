@@ -167,13 +167,23 @@ class MEXCClient(BaseExchangeClient):
     async def set_leverage(self, symbol: str, leverage: int, market: str = "swap") -> bool:
         ex = await self._get_futures() if market == "swap" else await self._get_spot()
         await self.rate_limiter.acquire()
+        # MEXC futures setLeverage needs openType (1=isolated, 2=cross) + positionType
+        # (1=long, 2=short). Bot only opens longs → isolated + long.
+        params = {"openType": 1, "positionType": 1}
         try:
-            await ex.set_leverage(leverage, symbol)
+            await ex.set_leverage(leverage, symbol, params)
             logger.info("leverage_set", symbol=symbol, leverage=leverage)
             return True
         except Exception as e:
             logger.warning("leverage_set_failed", symbol=symbol, error=str(e))
-            return False
+            # Retry with cross margin (some symbols/accounts reject isolated)
+            try:
+                await ex.set_leverage(leverage, symbol, {"openType": 2, "positionType": 1})
+                logger.info("leverage_set", symbol=symbol, leverage=leverage, mode="cross")
+                return True
+            except Exception as e2:
+                logger.warning("leverage_set_failed", symbol=symbol, error=str(e2))
+                return False
 
     async def set_position_mode(self, hedged: bool = False) -> None:
         ex = await self._get_futures()
