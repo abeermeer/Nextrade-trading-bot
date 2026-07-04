@@ -547,12 +547,16 @@ class TraderBot:
                 return
             market_type = "swap" if session.trade_type == "futures" else "spot"
             if session.trade_type == "futures":
-                # Skip symbols that aren't listed on the exchange's futures market — the
-                # analyst emits many spot-only symbols. Skip silently (no abort spam / API call).
+                trader_cfg = self.settings.get("trader", {})
+                # Only trade the configured major futures pairs (if a whitelist is set).
+                whitelist = trader_cfg.get("futures_symbols") or []
+                if whitelist and symbol not in whitelist:
+                    logger.debug("symbol_not_in_futures_whitelist", user=session.user_id, symbol=symbol)
+                    return
+                # And it must actually exist on the exchange's futures market.
                 if not session.exchange.has_futures_market(symbol):
                     logger.debug("symbol_not_on_futures", user=session.user_id, symbol=symbol)
                     return
-                trader_cfg = self.settings.get("trader", {})
                 leverage = trader_cfg.get("leverage", 10)
 
                 # #5 Funding-rate guard — avoid opening into an expensive funding interval

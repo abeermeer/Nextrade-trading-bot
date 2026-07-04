@@ -46,13 +46,17 @@ class MEXCClient(BaseExchangeClient):
         await spot.load_markets()
         for symbol, market in spot.markets.items():
             self._markets[symbol] = market
+        fut_count = 0
         try:
             fut = await self._get_futures()
             await fut.load_markets()
             for symbol, market in fut.markets.items():
                 self._markets[symbol] = market
-        except Exception:
-            pass
+                if market.get("swap"):
+                    fut_count += 1
+            logger.info("futures_markets_loaded", count=fut_count)
+        except Exception as e:
+            logger.warning("futures_markets_load_failed", error=str(e))
 
     def _get_market(self, symbol: str, market_type: str = "spot") -> Optional[dict]:
         return self._markets.get(symbol)
