@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any, Optional
-from sqlalchemy import delete, text
+from sqlalchemy import delete, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.database import async_session_factory
@@ -18,11 +18,19 @@ async def reset_demo_data() -> dict:
         t = await session.execute(delete(TradeRecord).where(TradeRecord.mode == BotModeDB.paper))
         p = await session.execute(delete(PositionRecord).where(PositionRecord.mode == BotModeDB.paper))
         s = await session.execute(delete(SignalRecord))
+        # Close any leftover OPEN positions (e.g. stale live ones the user closed manually on the
+        # exchange, so the DB still shows them open). Marks closed only — never touches the exchange.
+        c = await session.execute(
+            update(PositionRecord)
+            .where(PositionRecord.status == OrderStatusDB.open)
+            .values(status=OrderStatusDB.filled, closed_at=datetime.now(timezone.utc).replace(tzinfo=None))
+        )
         await session.commit()
         return {
             "trades_deleted": t.rowcount or 0,
             "positions_deleted": p.rowcount or 0,
             "signals_deleted": s.rowcount or 0,
+            "positions_closed": c.rowcount or 0,
         }
 
 
