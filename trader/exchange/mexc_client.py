@@ -1,4 +1,5 @@
 from typing import Optional
+import math
 import ccxt.async_support as ccxt
 from ccxt import AuthenticationError, NetworkError, ExchangeError
 from shared.models import OrderSide, OrderType
@@ -144,8 +145,22 @@ class MEXCClient(BaseExchangeClient):
         ccxt_side = side.value
         ccxt_type = "market" if order_type == OrderType.MARKET else "limit"
 
-        qty_rounded = self.round_amount(order_symbol, quantity)
         price_rounded = self.round_price(order_symbol, price)
+
+        if market != "spot":
+            # MEXC futures orders are denominated in whole CONTRACTS, not coin quantity. A perp
+            # contract is `contractSize` units of the base coin (e.g. BTC perp = 0.0001 BTC) and the
+            # amount must be an integer >= 1 ("minimum amount precision of 1"). We size a coin
+            # quantity upstream, so convert it to a contract count here — this is why BTC/ETH orders
+            # (fractional coin qty like 0.00016) were being rejected on every futures trade.
+            mkt = self._markets.get(order_symbol) or {}
+            cs = float(mkt.get("contractSize") or 1.0) or 1.0
+            contracts = int(math.floor(quantity / cs))
+            if contracts < 1:
+                contracts = 1  # exchange minimum; 1 contract is affordable on a small acct at leverage
+            qty_rounded: float = contracts
+        else:
+            qty_rounded = self.round_amount(order_symbol, quantity)
 
         params: dict = {}
 
@@ -156,6 +171,15 @@ class MEXCClient(BaseExchangeClient):
         if client_order_id:
             params["clientOrderId"] = client_order_id
 
+        order = await ex.create_order(
+            symbol=order_symbol,
+            type=ccxt_type,
+            side=ccxt_side,
+            amount=qty_rounded,
+            price=price_rounded,
+            params=params,
+        )
+
         logger.info(
             "order_created",
             symbol=order_symbol,
@@ -164,15 +188,6 @@ class MEXCClient(BaseExchangeClient):
             qty=qty_rounded,
             price=price_rounded,
             market=market,
-        )
-
-        order = await ex.create_order(
-            symbol=order_symbol,
-            type=ccxt_type,
-            side=ccxt_side,
-            amount=qty_rounded,
-            price=price_rounded,
-            params=params,
         )
 
         return order
