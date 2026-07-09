@@ -112,10 +112,36 @@ class MEXCClient(BaseExchangeClient):
         ex = await self._get_spot() if market == "spot" else await self._get_futures()
         await self.rate_limiter.acquire()
         balance = await ex.fetch_balance()
+        usdt = balance.get("USDT") or {}
+        total = usdt.get("total") or 0
+        free = usdt.get("free") or 0
+        used = usdt.get("used") or 0
+        # MEXC swap: ccxt's unified USDT dict is sometimes empty even though the futures wallet is
+        # funded — the real numbers sit in the raw `info` payload. Fall back to parsing it so the
+        # trader doesn't read a $0 balance and refuse to size any trade.
+        if market != "spot" and total <= 0 and free <= 0:
+            info = balance.get("info") or {}
+            data = info.get("data") or info
+            candidates = data if isinstance(data, list) else [data]
+            for d in candidates:
+                if not isinstance(d, dict):
+                    continue
+                cur = str(d.get("currency") or d.get("ccy") or "USDT").upper()
+                if cur != "USDT":
+                    continue
+                eq = d.get("equity") or d.get("availableBalance") or d.get("cashBalance") or d.get("balance") or 0
+                av = d.get("availableBalance") or d.get("availableMargin") or eq or 0
+                try:
+                    total = float(eq) or total
+                    free = float(av) or free
+                except (TypeError, ValueError):
+                    pass
+            if total <= 0 and free <= 0:
+                logger.warning("mexc_swap_balance_empty_raw", info=str(balance.get("info"))[:400])
         return {
-            "total_usdt": balance.get("USDT", {}).get("total", 0),
-            "free_usdt": balance.get("USDT", {}).get("free", 0),
-            "used_usdt": balance.get("USDT", {}).get("used", 0),
+            "total_usdt": total,
+            "free_usdt": free,
+            "used_usdt": used,
         }
 
     async def create_order(
