@@ -498,7 +498,7 @@ class TraderBot:
             await self._close_position(session, symbol, signal.price, "signal")
             return
         if not has_position and signal.action == SignalAction.BUY:
-            await self._open_position(session, symbol, signal.price)
+            await self._open_position(session, symbol, signal.price, signal.confidence)
             return
 
     async def _validate_order(self, session: UserSession, symbol: str, quantity: float, price: float) -> bool:
@@ -528,7 +528,13 @@ class TraderBot:
             logger.error("balance_fetch_error", user=session.user_id, error=str(e))
             return self._last_known_balance.get(session.user_id, 0.0)
 
-    async def _open_position(self, session: UserSession, symbol: str, price: float) -> None:
+    async def _open_position(self, session: UserSession, symbol: str, price: float, confidence: float = 1.0) -> None:
+        # #19 spot whitelist (futures whitelist handled in the live-futures block below)
+        if session.trade_type == "spot":
+            spot_wl = self.settings.get("trader", {}).get("spot_symbols") or []
+            if spot_wl and symbol not in spot_wl:
+                logger.debug("symbol_not_in_spot_whitelist", user=session.user_id, symbol=symbol)
+                return
         if session.mode == BotMode.PAPER:
             market_prices: dict[str, float] = {symbol: price}
             for sym in session.paper_engine.positions:
@@ -541,6 +547,9 @@ class TraderBot:
             available = await self._get_live_balance(session)
 
         quantity = session.risk_manager.calculate_position_size(available, price)
+        # #25 confidence-based sizing: scale UP for stronger signals (1.0x at threshold → 1.5x at
+        # full confidence). Never scales below base, so it can't drop under the min-notional floor.
+        quantity *= min(1.5, 0.5 + max(0.0, min(1.0, confidence)))
         if quantity <= 0:
             logger.warning("invalid_quantity", user=session.user_id, symbol=symbol)
             return
