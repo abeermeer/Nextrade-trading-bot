@@ -522,6 +522,10 @@ class TraderBot:
             free_usdt = bal.get("free_usdt", 0)
             total_usdt = bal.get("total_usdt", 0)
             balance = max(free_usdt, total_usdt)
+            # MEXC swap balance is intermittent (sometimes an empty 0 with no error). Don't cache a
+            # 0 over a previously-good value — return the last known balance on an empty fetch.
+            if balance <= 0:
+                return self._last_known_balance.get(session.user_id, 0.0)
             self._last_known_balance[session.user_id] = balance
             return balance
         except Exception as e:
@@ -545,13 +549,21 @@ class TraderBot:
             available = session.paper_engine.get_total_equity(market_prices)
         else:
             available = await self._get_live_balance(session)
+            # MEXC's swap balance fetch is intermittent — it periodically returns an empty wallet
+            # (0, no error) even though the account is funded. That was zeroing position size →
+            # every live open died on invalid_quantity. Fall back to the risk manager's last known
+            # balance (seeded from the real balance at validate_exchange and refreshed each monitor
+            # cycle) so a transient empty fetch doesn't block the trade.
+            if available <= 0 and session.risk_manager._last_balance:
+                available = session.risk_manager._last_balance
+                logger.warning("live_balance_empty_using_last_known", user=session.user_id, balance=available)
 
         quantity = session.risk_manager.calculate_position_size(available, price)
         # #25 confidence-based sizing: scale UP for stronger signals (1.0x at threshold → 1.5x at
         # full confidence). Never scales below base, so it can't drop under the min-notional floor.
         quantity *= min(1.5, 0.5 + max(0.0, min(1.0, confidence)))
         if quantity <= 0:
-            logger.warning("invalid_quantity", user=session.user_id, symbol=symbol)
+            logger.warning("invalid_quantity", user=session.user_id, symbol=symbol, available=available)
             return
 
         if not await self._validate_order(session, symbol, quantity, price):
