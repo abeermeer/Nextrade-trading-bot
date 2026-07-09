@@ -123,7 +123,9 @@ strategies:
 
 signal_resolution:
   mode: weighted  # weighted | strict | majority
-  confidence_threshold: 0.5
+  confidence_threshold: 0.25  # lowered from 0.5: no whitelisted major was emitting a BUY >= 0.5
+                              # (best was BTC ~0.30) so nothing ever executed. 0.25 lets majors
+                              # trade. Weaker signals = higher loss risk — raise back to tighten.
   min_signals_required: 2
   action_threshold: 0.15
   paper:
