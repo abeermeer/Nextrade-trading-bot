@@ -46,6 +46,9 @@ analyst:
       - 4h
     backtest_weight: 0.7
     accuracy_weight: 0.3
+    walk_forward:                 # #24 score strategies on held-out out-of-sample bars (less overfit)
+      enabled: true
+      train_frac: 0.5
 
 trader:
   max_position_size_usdt: 1000

@@ -139,6 +139,12 @@ export const api = {
 
   // Admin
   adminUsers: () => request<import("../types").AdminUser[]>("/api/user/admin/users"),
+  adminStrategies: () => request<{ strategies: { name: string; enabled: boolean }[] }>("/api/user/admin/strategies"),
+  updateStrategies: (disabled: string[]) =>
+    request<{ success: boolean; disabled: string[] }>("/api/user/admin/strategies", {
+      method: "PUT",
+      body: JSON.stringify({ disabled }),
+    }),
   adminAnalytics: () => request<{
     total_users: number; monthly_users: number; active_bots: number;
     total_trades: number; total_pnl: number;

@@ -131,6 +131,39 @@ async def update_settings(
     }
 
 
+STRATEGY_NAMES = [
+    "rsi", "macd_cross", "ema_trend", "volume_breakout", "bollinger_squeeze", "supertrend",
+    "adx", "ichimoku", "pullback", "range", "counter_trend", "stoch_rsi", "psar", "mfi", "vwap",
+]
+
+
+@router.get("/admin/strategies")
+async def list_strategies(admin: UserRecord = Depends(get_admin_user)):
+    """List all strategies + whether each is enabled (runtime toggle stored in Redis)."""
+    import json as _json
+    disabled = set()
+    try:
+        rc = create_redis_client(); await rc.connect()
+        raw = await rc.get("strategies:disabled"); await rc.disconnect()
+        disabled = set(_json.loads(raw)) if raw else set()
+    except Exception:
+        pass
+    return {"strategies": [{"name": n, "enabled": n not in disabled} for n in STRATEGY_NAMES]}
+
+
+@router.put("/admin/strategies")
+async def set_strategies(data: dict, admin: UserRecord = Depends(get_admin_user)):
+    """Set the disabled-strategy list. The analyst reads Redis strategies:disabled each cycle."""
+    import json as _json
+    disabled = [s for s in (data.get("disabled") or []) if s in STRATEGY_NAMES]
+    try:
+        rc = create_redis_client(); await rc.connect()
+        await rc.set("strategies:disabled", _json.dumps(disabled)); await rc.disconnect()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Redis error: {e}")
+    return {"success": True, "disabled": disabled}
+
+
 @router.post("/reset-demo")
 async def reset_demo(user: UserRecord = Depends(get_current_user)):
     """Clear DEMO (paper) results only — paper trades + paper positions + signals.

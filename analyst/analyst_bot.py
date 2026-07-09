@@ -49,6 +49,7 @@ class AnalystBot:
         )
 
         self._tf_actions: dict[str, dict[str, str]] = {}  # {symbol: {tf: action}} for MTF confirmation
+        self._disabled_strategies: set = set()  # #31 runtime-disabled strategies (from dashboard)
         self.timeframes: list[str] = analyst_cfg.get("timeframes", ["15m", "1h", "4h"])
         self.signal_interval = analyst_cfg.get("signal_interval_seconds", 300)
         self.heartbeat_interval = analyst_cfg.get("heartbeat_interval_seconds", 30)
@@ -116,6 +117,13 @@ class AnalystBot:
         dynamic_weights = await self.strategy_scorer.get_dynamic_weights()
         self.signal_aggregator.set_dynamic_weights(dynamic_weights)
 
+        # #31 runtime strategy on/off — read the disabled set (managed from the dashboard) once/cycle
+        try:
+            raw = await self.redis.get("strategies:disabled")
+            self._disabled_strategies = set(json.loads(raw)) if raw else set()
+        except Exception:
+            self._disabled_strategies = set()
+
         pairs = await self.pair_selector.select_pairs()
         logger.info("analysis_started", pair_count=len(pairs), timeframes=self.timeframes)
 
@@ -139,7 +147,7 @@ class AnalystBot:
             if df.empty:
                 return
 
-            strategy_results = self.strategy_runner.run_all(df)
+            strategy_results = self.strategy_runner.run_all(df, disabled=self._disabled_strategies)
             if not strategy_results:
                 return
 

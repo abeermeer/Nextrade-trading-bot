@@ -76,6 +76,24 @@ export default function Settings() {
     onError: () => addToast("Reset failed", "error"),
   });
 
+  const { data: strategiesData, refetch: refetchStrategies } = useQuery({
+    queryKey: ["adminStrategies"],
+    queryFn: api.adminStrategies,
+    enabled: !!user?.is_admin,
+  });
+  const saveStrategies = useMutation({
+    mutationFn: (disabled: string[]) => api.updateStrategies(disabled),
+    onSuccess: () => { refetchStrategies(); addToast("Strategies updated", "success"); },
+    onError: () => addToast("Update failed", "error"),
+  });
+  const toggleStrategy = (name: string, newEnabled: boolean) => {
+    const list = strategiesData?.strategies || [];
+    const disabled = list
+      .filter((s) => (s.name === name ? !newEnabled : !s.enabled))
+      .map((s) => s.name);
+    saveStrategies.mutate(disabled);
+  };
+
   const { data: whitelist, refetch: refetchWhitelist } = useQuery({
     queryKey: ["whitelist"],
     queryFn: api.getWhitelist,
@@ -454,6 +472,25 @@ export default function Settings() {
               </div>
             </Card>
           </motion.div>
+
+          {/* Strategy on/off (admin) */}
+          {user?.is_admin && strategiesData && (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+              <Card className="p-6 space-y-3">
+                <h2 className="font-heading font-bold text-lg">Strategies (Admin)</h2>
+                <p className="text-xs text-gray-500">Turn signal strategies on/off. Applies to the live analyst within ~1 cycle.</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {strategiesData.strategies.map((s) => (
+                    <label key={s.name} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={s.enabled} disabled={saveStrategies.isPending}
+                        onChange={(e) => toggleStrategy(s.name, e.target.checked)} />
+                      <span className={s.enabled ? "text-white" : "text-gray-500"}>{s.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Strategy Config */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>

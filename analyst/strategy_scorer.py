@@ -29,6 +29,9 @@ class StrategyScorer:
         self.backtest_timeframes = scorer_cfg.get("backtest_timeframes", ["1h"])
         self.accuracy_weight = scorer_cfg.get("accuracy_weight", 0.3)
         self.backtest_weight = scorer_cfg.get("backtest_weight", 0.7)
+        wf = scorer_cfg.get("walk_forward", {})
+        self.wf_enabled = wf.get("enabled", False)
+        self.wf_train_frac = wf.get("train_frac", 0.5)  # first fraction = in-sample warmup (not scored)
 
         self._running = False
 
@@ -175,7 +178,12 @@ class StrategyScorer:
         entry_price = 0.0
         entry_qty = 0.0
 
+        # Walk-forward: use the first train_frac of bars only to warm up indicators/state,
+        # and score trades on the held-out out-of-sample tail — reduces overfitting.
+        warmup = int(len(df) * self.wf_train_frac) if self.wf_enabled else 0
         for i in range(len(df)):
+            if i < warmup:
+                continue
             row = df.iloc[: i + 1].copy()
             price = float(row["close"].iloc[-1])
 

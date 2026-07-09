@@ -44,11 +44,12 @@ class StrategyRunner:
     def __init__(self, strategies_config: dict):
         self.strategies_config = strategies_config.get("strategies", {})
 
-    def run_all(self, df: pd.DataFrame) -> list[StrategyResult]:
+    def run_all(self, df: pd.DataFrame, disabled: set | None = None) -> list[StrategyResult]:
         results: list[StrategyResult] = []
+        disabled = disabled or set()
 
         for name, cfg in self.strategies_config.items():
-            if not cfg.get("enabled", True):
+            if not cfg.get("enabled", True) or name in disabled:
                 continue
 
             strategy_class = STRATEGY_MAP.get(name)

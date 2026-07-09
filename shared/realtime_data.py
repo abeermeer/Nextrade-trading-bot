@@ -30,11 +30,20 @@ class RealtimeDataManager:
         self._running = True
         tfs = timeframes or ["15m"]
 
-        tasks = [asyncio.create_task(self._ticker_loop(s)) for s in symbols]
-        for tf in tfs:
-            tasks.append(asyncio.create_task(self._ohlcv_loop(symbols, tf)))
+        # Only subscribe to symbols the exchange actually lists — delisted/unknown ones
+        # (e.g. MATIC after the POL rename) otherwise raise "does not have market symbol"
+        # on every 5s retry and flood the logs / load Redis.
+        ex = await self._get_exchange()
+        valid = [s for s in symbols if s in ex.markets]
+        skipped = [s for s in symbols if s not in ex.markets]
+        if skipped:
+            logger.warning("realtime_skipped_unknown_symbols", count=len(skipped), symbols=skipped[:10])
 
-        logger.info("realtime_started", symbols=len(symbols), timeframes=tfs)
+        tasks = [asyncio.create_task(self._ticker_loop(s)) for s in valid]
+        for tf in tfs:
+            tasks.append(asyncio.create_task(self._ohlcv_loop(valid, tf)))
+
+        logger.info("realtime_started", symbols=len(valid), timeframes=tfs)
         await asyncio.gather(*tasks)
 
     async def _ticker_loop(self, symbol: str) -> None:
@@ -49,6 +58,9 @@ class RealtimeDataManager:
                         await cb(symbol, float(price))
             except Exception as e:
                 if self._running:
+                    if "does not have market" in str(e) or "not supported" in str(e).lower():
+                        logger.warning("ticker_ws_unsupported_stop", symbol=symbol)
+                        return  # stop this symbol's loop — retrying can never succeed
                     logger.warning("ticker_ws_error", symbol=symbol, error=str(e))
                     await asyncio.sleep(5)
 
@@ -65,6 +77,9 @@ class RealtimeDataManager:
                         await cb(symbol, timeframe, ohlcv[-1])
                 except Exception as e:
                     if self._running:
+                        if "does not have market" in str(e) or "not supported" in str(e).lower():
+                            logger.warning("ohlcv_ws_unsupported_stop", symbol=symbol, timeframe=timeframe)
+                            return  # stop this symbol's loop
                         logger.warning("ohlcv_ws_error", symbol=symbol, timeframe=timeframe, error=str(e))
                         await asyncio.sleep(5)
 
