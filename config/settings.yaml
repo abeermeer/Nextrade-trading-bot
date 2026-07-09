@@ -41,6 +41,7 @@ trader:
   cooldown_seconds: 300
   default_sl_pct: 1.5
   default_tp_pct: 5.0
+  profit_take_pct: 2.0   # bot closes a live position once it's up this % (monitored, not a fixed exchange TP). 0 = disable
   min_volume_usdt: 10000
   stale_signal_timeout_seconds: 300
   leverage: 10

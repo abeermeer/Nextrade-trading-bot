@@ -121,9 +121,17 @@ async def get_portfolio(
         select(TradeRecord.symbol, func.count(), func.coalesce(func.sum(TradeRecord.pnl), 0))
         .where(TradeRecord.user_id == user.id)
         .group_by(TradeRecord.symbol)
-        .order_by(desc(func.count()))
     )
-    pairs = [{"symbol": r[0], "trades": r[1], "pnl": round(r[2], 2)} for r in pair_result.all()]
+    # merge futures (X/USDT:USDT) and spot (X/USDT) rows for the same coin
+    _merged: dict[str, dict] = {}
+    for sym, cnt, pnl in pair_result.all():
+        key = (sym or "").split(":")[0]
+        m = _merged.setdefault(key, {"symbol": key, "trades": 0, "pnl": 0.0})
+        m["trades"] += cnt
+        m["pnl"] += float(pnl or 0)
+    pairs = sorted(_merged.values(), key=lambda x: -x["trades"])
+    for p in pairs:
+        p["pnl"] = round(p["pnl"], 2)
 
     return {
         "total_pnl": round(total_pnl, 2),

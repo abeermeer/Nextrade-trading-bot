@@ -35,6 +35,13 @@ FAILED_TRADES_DEAD_KEY = "failed_trades:dead"
 MAX_TRADE_RETRIES = 10
 
 
+def _norm_symbol(symbol: str) -> str:
+    """Canonical signal-format symbol. Exchange futures use X/USDT:USDT; the tracker and
+    trade ledger use X/USDT. Mixing them meant positions never matched on close, so realized
+    PnL was never computed (every trade saved pnl=None). Always normalize to X/USDT."""
+    return symbol.split(":")[0] if symbol else symbol
+
+
 async def _push_failed_trade(redis: Optional[RedisClient], trade_kwargs: dict) -> None:
     """Dead-letter a save_trade payload that failed to persist, so a background
     retry loop can re-attempt the DB write. A live order that filled but never
@@ -132,7 +139,7 @@ class UserSession:
             market_type = "swap" if self.trade_type == "futures" else "spot"
             positions = await self.exchange.fetch_positions(market_type)
             for pos in positions:
-                symbol = pos.get("symbol")
+                symbol = _norm_symbol(pos.get("symbol"))
                 side_raw = pos.get("side", "long")
                 contracts = float(pos.get("contracts", 0) or pos.get("size", 0))
                 entry = float(pos.get("entryPrice", 0) or pos.get("entry_price", 0))
@@ -167,7 +174,7 @@ class UserSession:
             exchange_positions = await self.exchange.fetch_positions(market_type)
             exchange_symbols = set()
             for pos in exchange_positions:
-                symbol = pos.get("symbol")
+                symbol = _norm_symbol(pos.get("symbol"))
                 contracts = float(pos.get("contracts", 0) or pos.get("size", 0))
                 if symbol and contracts > 0:
                     exchange_symbols.add(symbol)
@@ -526,12 +533,13 @@ class TraderBot:
         if not await self._validate_order(session, symbol, quantity, price):
             return
 
-        sl_pct = 1.5
-        tp_pct = 5.0
+        sl_pct = self.settings.get("trader", {}).get("default_sl_pct", 1.5)
         stop_loss = price * (1 - sl_pct / 100)
         if stop_loss <= 0:
             stop_loss = 0.0
-        take_profit = price * (1 + tp_pct / 100)
+        # No fixed take-profit order — the bot monitors each position itself and closes it
+        # on profit (see _monitor_loop profit-take). Only the stop-loss is set on the exchange.
+        take_profit = None
 
         if session.mode == BotMode.PAPER:
             order = await session.paper_engine.create_order(
@@ -621,6 +629,32 @@ class TraderBot:
         await notifier.send_trade_notification(
             symbol=symbol, action="buy", price=fill_price, quantity=quantity,
         )
+
+    async def _check_profit_take(self, session: UserSession) -> None:
+        """Bot-managed take-profit: monitor each open live position and close it once it's
+        up >= profit_take_pct. Replaces the fixed exchange TP order (stop-loss stays on the
+        exchange). Set trader.profit_take_pct <= 0 to disable."""
+        pct = self.settings.get("trader", {}).get("profit_take_pct", 2.0)
+        if pct <= 0 or not session.exchange or not session._exchange_created:
+            return
+        for sym in list(session.position_tracker.get_all_open_symbols()):
+            pos = session.position_tracker.get_open_position(sym)
+            if not pos:
+                continue
+            try:
+                ticker = await session.exchange.fetch_ticker(sym)
+                cur = float(ticker.get("last") or ticker.get("close") or 0)
+            except Exception:
+                continue
+            if cur <= 0 or not pos.entry_price:
+                continue
+            if pos.side == OrderSide.BUY:
+                gain = (cur - pos.entry_price) / pos.entry_price * 100
+            else:
+                gain = (pos.entry_price - cur) / pos.entry_price * 100
+            if gain >= pct:
+                logger.info("profit_take_close", user=session.user_id, symbol=sym, gain_pct=round(gain, 2), price=cur)
+                await self._close_position(session, sym, cur, "take_profit")
 
     async def _close_position(self, session: UserSession, symbol: str, price: float, reason: str) -> None:
         pos = session.position_tracker.get_open_position(symbol)
@@ -844,6 +878,7 @@ class TraderBot:
                     live_bal = await self._get_live_balance(session)
                     session.risk_manager.update_balance(live_bal)
                     await session.reconcile_positions()
+                    await self._check_profit_take(session)
 
             try:
                 hb = {"status": "alive", "timestamp": now.isoformat(), "mode": "multi"}
