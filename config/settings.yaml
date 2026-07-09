@@ -24,10 +24,11 @@ analyst:
   min_volume_usdt: 5000000        # #22 skip pairs with < $5M 24h quote volume (illiquid noise)
   mtf_confirmation:               # #21 require multiple timeframes to agree before an actionable signal
     enabled: true
-    min_agree: 2
+    min_agree: 1                  # loosened 2->1: min_agree 2 forced every calm major to HOLD, so the
+                                  # only actionable BUYs were volatile junk coins (no futures market)
   regime_filter:                  # #29 only trade trending markets (ADX)
     enabled: true
-    min_adx: 20
+    min_adx: 10                   # loosened 20->10: ADX 20 gated out calm majors (BTC/ETH/SOL) as HOLD
   scorer:
     enabled: true
     backtest_interval_hours: 6
