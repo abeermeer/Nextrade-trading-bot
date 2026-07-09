@@ -916,7 +916,11 @@ class TraderBot:
                     session.risk_manager.update_balance(total_equity)
                 elif session.mode == BotMode.LIVE and session.exchange and session._exchange_created:
                     live_bal = await self._get_live_balance(session)
-                    session.risk_manager.update_balance(live_bal)
+                    # Only feed a real balance to the risk manager — a failed fetch (e.g. 700007
+                    # perm error) returns 0 and would falsely trip the circuit breaker as a "100%
+                    # drawdown", blocking all trades.
+                    if live_bal > 0:
+                        session.risk_manager.update_balance(live_bal)
                     await session.reconcile_positions()
                     await self._check_profit_take(session)
 
