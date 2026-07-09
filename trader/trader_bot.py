@@ -906,23 +906,29 @@ class TraderBot:
                 refresh_counter = 0
 
             for session in self.sessions.values():
-                if session.mode == BotMode.PAPER and session.paper_engine.positions:
-                    market_prices: dict[str, float] = {}
-                    for sym in session.paper_engine.positions:
-                        p = session.position_tracker.get_open_position(sym)
-                        if p:
-                            market_prices[sym] = p.entry_price
-                    total_equity = session.paper_engine.get_total_equity(market_prices)
-                    session.risk_manager.update_balance(total_equity)
-                elif session.mode == BotMode.LIVE and session.exchange and session._exchange_created:
-                    live_bal = await self._get_live_balance(session)
-                    # Only feed a real balance to the risk manager — a failed fetch (e.g. 700007
-                    # perm error) returns 0 and would falsely trip the circuit breaker as a "100%
-                    # drawdown", blocking all trades.
-                    if live_bal > 0:
-                        session.risk_manager.update_balance(live_bal)
-                    await session.reconcile_positions()
-                    await self._check_profit_take(session)
+                # Isolate per-session work: one user's reconcile/profit-take/balance error must
+                # never kill the monitor loop — that would stop the heartbeat below (dashboard
+                # shows the trader "Offline") and halt profit-take for everyone else.
+                try:
+                    if session.mode == BotMode.PAPER and session.paper_engine.positions:
+                        market_prices: dict[str, float] = {}
+                        for sym in session.paper_engine.positions:
+                            p = session.position_tracker.get_open_position(sym)
+                            if p:
+                                market_prices[sym] = p.entry_price
+                        total_equity = session.paper_engine.get_total_equity(market_prices)
+                        session.risk_manager.update_balance(total_equity)
+                    elif session.mode == BotMode.LIVE and session.exchange and session._exchange_created:
+                        live_bal = await self._get_live_balance(session)
+                        # Only feed a real balance to the risk manager — a failed fetch (e.g. 700007
+                        # perm error) returns 0 and would falsely trip the circuit breaker as a "100%
+                        # drawdown", blocking all trades.
+                        if live_bal > 0:
+                            session.risk_manager.update_balance(live_bal)
+                        await session.reconcile_positions()
+                        await self._check_profit_take(session)
+                except Exception as e:
+                    logger.error("monitor_session_error", user=session.user_id, error=str(e))
 
             try:
                 hb = {"status": "alive", "timestamp": now.isoformat(), "mode": "multi"}

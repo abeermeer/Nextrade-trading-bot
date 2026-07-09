@@ -183,9 +183,20 @@ class MEXCClient(BaseExchangeClient):
         return await ex.cancel_order(order_id, symbol)
 
     async def cancel_all_orders(self, symbol: Optional[str] = None) -> None:
-        ex = await self._get_spot()
-        await self.rate_limiter.acquire()
-        await ex.cancel_all_orders(symbol)
+        # Best-effort resting-order cleanup on stop/flatten. MEXC spot rejects an account-wide
+        # cancel with no symbol ("requires a symbol argument"), and a futures session's orders
+        # live on the swap endpoint — so try both markets and swallow per-market errors instead
+        # of letting one failure abort the stop/flatten flow.
+        for getter in (self._get_futures, self._get_spot):
+            try:
+                ex = await getter()
+                await self.rate_limiter.acquire()
+                if symbol:
+                    await ex.cancel_all_orders(self._futures_symbol(symbol) if getter is self._get_futures else symbol)
+                else:
+                    await ex.cancel_all_orders()
+            except Exception as e:
+                logger.warning("cancel_all_orders_skip", market=getter.__name__, error=str(e))
 
     async def fetch_open_orders(self, symbol: Optional[str] = None) -> list[dict]:
         ex = await self._get_spot()
