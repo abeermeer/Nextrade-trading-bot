@@ -31,7 +31,10 @@ class RiskManager:
         cooldown_seconds: int = 300,
         initial_balance: float = 10000.0,
         max_correlation_exposure: int = 2,
+        max_daily_trades: int = 50,
     ):
+        self.max_daily_trades = max_daily_trades
+        self._daily_trades = 0
         self.max_position_size_usdt = max_position_size_usdt
         self.max_daily_drawdown_pct = max_daily_drawdown_pct
         self.circuit_breaker_drawdown_pct = circuit_breaker_drawdown_pct
@@ -52,6 +55,7 @@ class RiskManager:
             self._current_date = today
             self._daily_start_balance = None
             self._daily_peak = None
+            self._daily_trades = 0
 
     def update_balance(self, current_balance: float) -> None:
         self._check_date_reset()
@@ -87,6 +91,8 @@ class RiskManager:
             return False, "Circuit breaker active — drawdown limit exceeded"
 
         self._check_date_reset()
+        if self.max_daily_trades > 0 and self._daily_trades >= self.max_daily_trades:
+            return False, f"Daily trade limit reached ({self._daily_trades}/{self.max_daily_trades})"
         if self._last_balance is not None and self._daily_start_balance is not None:
             daily_pnl_pct = (
                 (self._last_balance - self._daily_start_balance)
@@ -125,7 +131,9 @@ class RiskManager:
         return quantity
 
     def record_trade(self, symbol: str) -> None:
+        self._check_date_reset()
         self._cooldowns[symbol] = datetime.now(timezone.utc)
+        self._daily_trades += 1
 
     def reset_circuit_breaker(self) -> None:
         self._circuit_breaker_active = False

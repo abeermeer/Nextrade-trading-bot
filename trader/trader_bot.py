@@ -80,6 +80,7 @@ class UserSession:
             cooldown_seconds=300,
         )
         self.paper_engine = PaperEngine(initial_balance_usdt=getattr(user, "paper_balance_usdt", None) or 10000.0)
+        self.peak_prices: dict[str, float] = {}  # high-water mark per symbol for trailing stop
         self.exchange: Optional["BaseExchangeClient"] = None
         self._exchange_created = False
 
@@ -439,6 +440,11 @@ class TraderBot:
         if signal.action == SignalAction.HOLD:
             return
 
+        # Enforce the confidence threshold on OPENING trades (BUY) — was only logged before,
+        # so the bot acted on weak signals. SELL (exit) is always allowed.
+        if signal.action == SignalAction.BUY and signal.confidence < live_conf_threshold:
+            return
+
         for uid, session in list(self.sessions.items()):
             try:
                 await self._execute_for_user(session, signal)
@@ -480,6 +486,15 @@ class TraderBot:
             logger.info("already_in_position", user=session.user_id, symbol=symbol)
             return
         if has_position and signal.action == SignalAction.SELL:
+            # Anti-whipsaw: don't close a position that was just opened seconds ago on an
+            # opposite signal. Let it breathe for min_hold_seconds (SL/profit-take still apply).
+            pos = session.position_tracker.get_open_position(symbol)
+            min_hold = self.settings.get("trader", {}).get("min_hold_seconds", 60)
+            if pos and pos.opened_at:
+                age = (datetime.now(timezone.utc) - pos.opened_at).total_seconds()
+                if age < min_hold:
+                    logger.debug("min_hold_active", user=session.user_id, symbol=symbol, age=round(age))
+                    return
             await self._close_position(session, symbol, signal.price, "signal")
             return
         if not has_position and signal.action == SignalAction.BUY:
@@ -611,6 +626,7 @@ class TraderBot:
             quantity=quantity, stop_loss=stop_loss, take_profit=take_profit,
         )
         session.risk_manager.record_trade(symbol)
+        session.peak_prices[symbol] = fill_price  # seed trailing high-water mark
         await self._push_log("info", f"BUY {symbol} @ {fill_price} qty={quantity:.4f}", user=session.user_id, symbol=symbol)
 
         trade_kwargs = dict(
@@ -634,8 +650,10 @@ class TraderBot:
         """Bot-managed take-profit: monitor each open live position and close it once it's
         up >= profit_take_pct. Replaces the fixed exchange TP order (stop-loss stays on the
         exchange). Set trader.profit_take_pct <= 0 to disable."""
-        pct = self.settings.get("trader", {}).get("profit_take_pct", 2.0)
-        if pct <= 0 or not session.exchange or not session._exchange_created:
+        cfg = self.settings.get("trader", {})
+        pct = cfg.get("profit_take_pct", 2.0)
+        trail = cfg.get("trailing_stop_pct", 1.0)
+        if not session.exchange or not session._exchange_created:
             return
         for sym in list(session.position_tracker.get_all_open_symbols()):
             pos = session.position_tracker.get_open_position(sym)
@@ -652,9 +670,21 @@ class TraderBot:
                 gain = (cur - pos.entry_price) / pos.entry_price * 100
             else:
                 gain = (pos.entry_price - cur) / pos.entry_price * 100
-            if gain >= pct:
+            # fixed profit-take
+            if pct > 0 and gain >= pct:
                 logger.info("profit_take_close", user=session.user_id, symbol=sym, gain_pct=round(gain, 2), price=cur)
                 await self._close_position(session, sym, cur, "take_profit")
+                continue
+            # trailing stop — once in profit, exit if price falls trail% from its peak
+            if trail > 0:
+                peak = session.peak_prices.get(sym, pos.entry_price)
+                if cur > peak:
+                    session.peak_prices[sym] = peak = cur
+                if peak > pos.entry_price and cur > pos.entry_price:
+                    drop = (peak - cur) / peak * 100
+                    if drop >= trail:
+                        logger.info("trailing_stop_close", user=session.user_id, symbol=sym, drop_pct=round(drop, 2), price=cur)
+                        await self._close_position(session, sym, cur, "trailing_stop")
 
     async def _close_position(self, session: UserSession, symbol: str, price: float, reason: str) -> None:
         pos = session.position_tracker.get_open_position(symbol)
@@ -685,6 +715,7 @@ class TraderBot:
             sell_fee = float(fee_info.get("cost", 0)) if isinstance(fee_info, dict) and fee_info.get("cost") else 0.001 * exit_price * pos.quantity
 
         closed = session.position_tracker.close_position(symbol, exit_price, reason)
+        session.peak_prices.pop(symbol, None)
         if closed:
             await self._push_log("info", f"SELL {symbol} @ {exit_price} pnl={closed.realized_pnl:.2f}", user=session.user_id, symbol=symbol)
             if session.mode == BotMode.PAPER:

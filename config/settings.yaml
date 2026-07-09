@@ -42,6 +42,9 @@ trader:
   default_sl_pct: 1.5
   default_tp_pct: 5.0
   profit_take_pct: 2.0   # bot closes a live position once it's up this % (monitored, not a fixed exchange TP). 0 = disable
+  trailing_stop_pct: 1.0 # once in profit, exit if price falls this % from its peak. 0 = disable
+  min_hold_seconds: 60   # don't close a just-opened position on an opposite signal within this window (anti-whipsaw)
+  max_daily_trades: 50   # (default in RiskManager) overtrading cap per UTC day
   min_volume_usdt: 10000
   stale_signal_timeout_seconds: 300
   leverage: 10
