@@ -21,16 +21,29 @@ analyst:
   signal_interval_seconds: 300  # 5 min between signal generation cycles
   max_pairs_to_analyze: 40
   heartbeat_interval_seconds: 30
+  min_volume_usdt: 5000000        # #22 skip pairs with < $5M 24h quote volume (illiquid noise)
+  mtf_confirmation:               # #21 require multiple timeframes to agree before an actionable signal
+    enabled: true
+    min_agree: 2
+  regime_filter:                  # #29 only trade trending markets (ADX)
+    enabled: true
+    min_adx: 20
   scorer:
     enabled: true
     backtest_interval_hours: 6
-    backtest_pairs:
+    backtest_pairs:               # #23 more pairs for better strategy weights
       - BTC/USDT
       - ETH/USDT
       - SOL/USDT
-    backtest_period: 1mo
+      - XRP/USDT
+      - BNB/USDT
+      - DOGE/USDT
+      - ADA/USDT
+      - AVAX/USDT
+    backtest_period: 3mo          # #23 longer window (was 1mo)
     backtest_timeframes:
       - 1h
+      - 4h
     backtest_weight: 0.7
     accuracy_weight: 0.3
 

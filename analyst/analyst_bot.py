@@ -35,6 +35,7 @@ class AnalystBot:
         self.data_fetcher = DataFetcher()
         self.pair_selector = PairSelector(
             max_pairs=analyst_cfg.get("max_pairs_to_analyze", 10),
+            min_volume_usdt=analyst_cfg.get("min_volume_usdt", 0),
         )
         self.indicator_calculator = IndicatorCalculator(analyst_cfg)
         self.strategy_runner = StrategyRunner(self.strategies_config)
@@ -47,6 +48,7 @@ class AnalystBot:
             indicator_calculator=self.indicator_calculator,
         )
 
+        self._tf_actions: dict[str, dict[str, str]] = {}  # {symbol: {tf: action}} for MTF confirmation
         self.timeframes: list[str] = analyst_cfg.get("timeframes", ["15m", "1h", "4h"])
         self.signal_interval = analyst_cfg.get("signal_interval_seconds", 300)
         self.heartbeat_interval = analyst_cfg.get("heartbeat_interval_seconds", 30)
@@ -148,6 +150,26 @@ class AnalystBot:
                 strategy_results=strategy_results,
                 paper_mode=is_paper,
             )
+
+            # #21 multi-timeframe confirmation — only emit an actionable signal if >= min_agree
+            # timeframes currently vote the same direction for this symbol.
+            from shared.models import SignalAction as _SA
+            mtf = self.settings.get("analyst", {}).get("mtf_confirmation", {})
+            if mtf.get("enabled", False):
+                self._tf_actions.setdefault(symbol, {})[timeframe] = signal.action.value
+                if signal.action != _SA.HOLD:
+                    agree = sum(1 for a in self._tf_actions[symbol].values() if a == signal.action.value)
+                    if agree < mtf.get("min_agree", 2):
+                        signal.action = _SA.HOLD
+
+            # #29 regime filter — only allow actionable signals in trending markets (ADX >= min).
+            rf = self.settings.get("analyst", {}).get("regime_filter", {})
+            if rf.get("enabled", False):
+                adx_val = float(df["adx"].iloc[-1]) if "adx" in df.columns else 0.0
+                if adx_val < rf.get("min_adx", 20):
+                    from shared.models import SignalAction as _SA
+                    if signal.action != _SA.HOLD:
+                        signal.action = _SA.HOLD
 
             signal_data = signal.model_dump(mode="json")
             signal_data["timeframe"] = timeframe

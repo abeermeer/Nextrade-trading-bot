@@ -21,9 +21,18 @@ class IndicatorCalculator:
         self._add_ema(df)
         self._add_bollinger(df)
         self._add_volume_ma(df)
+        self._add_adx(df)
 
         df.dropna(inplace=True)
         return df
+
+    def _add_adx(self, df: pd.DataFrame) -> None:
+        # ADX = trend strength (regime). Used to gate signals to trending markets only.
+        try:
+            adx = ta.adx(df["high"], df["low"], df["close"], length=14)
+            df["adx"] = adx["ADX_14"] if adx is not None and "ADX_14" in adx else 0.0
+        except Exception:
+            df["adx"] = 0.0
 
     def _add_rsi(self, df: pd.DataFrame) -> None:
         period = self.indicator_periods.get("rsi", 14)

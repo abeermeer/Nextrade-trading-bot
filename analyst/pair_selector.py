@@ -17,9 +17,10 @@ DEFAULT_PAIRS = [
 
 
 class PairSelector:
-    def __init__(self, max_pairs: int = 10, exchange: Optional[ccxt.Exchange] = None):
+    def __init__(self, max_pairs: int = 10, exchange: Optional[ccxt.Exchange] = None, min_volume_usdt: float = 0.0):
         self.max_pairs = max_pairs
         self._exchange = exchange
+        self.min_volume_usdt = min_volume_usdt
 
     async def _get_exchange(self) -> ccxt.Exchange:
         if self._exchange is None:
@@ -33,7 +34,7 @@ class PairSelector:
             usdt_pairs = [
                 {"symbol": s, "volume": t.get("quoteVolume", 0) or 0}
                 for s, t in tickers.items()
-                if s.endswith("/USDT") and (t.get("quoteVolume", 0) or 0) > 0
+                if s.endswith("/USDT") and (t.get("quoteVolume", 0) or 0) > self.min_volume_usdt
             ]
             usdt_pairs.sort(key=lambda x: x["volume"], reverse=True)
             selected = [p["symbol"] for p in usdt_pairs[: self.max_pairs]]
