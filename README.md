@@ -13,7 +13,7 @@
     <img src="https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square" alt="FastAPI">
     <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
     <img src="https://img.shields.io/badge/strategies-15-orange?style=flat-square" alt="15 Strategies">
-    <img src="https://img.shields.io/badge/tests-64%20passing-brightgreen?style=flat-square" alt="64 Tests Passing">
+    <img src="https://img.shields.io/badge/tests-75%20passing-brightgreen?style=flat-square" alt="75 Tests Passing">
   </p>
 </div>
 
@@ -166,7 +166,7 @@ All critical failure modes from independent code audits have been addressed:
 
 ```bash
 git clone https://github.com/abeermeer/Nextrade-trading-bot.git
-cd mexc-trading-bot
+cd Nextrade-trading-bot
 python -m venv .venv
 source .venv/bin/activate  # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt && pip install -e .
@@ -218,6 +218,21 @@ pytest tests/ --cov=. --cov-report=term
 | PostgreSQL | **Railway** | Managed add-on, shared across all services via `DATABASE_URL` |
 | Redis | **Railway** | Managed add-on, must be attached to all 3 services |
 
+## Configuration
+
+Runtime behaviour is driven by two config files (no code changes needed):
+
+| File | Controls |
+|------|----------|
+| `config/settings.yaml` | Analyst timeframes & filters (MTF, ADX regime, volume), strategy scorer, trader risk (leverage, profit-take, trailing stop, whitelists, daily-trade cap) |
+| `config/strategies.yaml` | Per-strategy parameters and live/paper `signal_resolution` (confidence & action thresholds, min signals) |
+
+Secrets are read from environment variables only — see `config/.env.example`. The same `ENCRYPTION_KEY` must be set on the **web, analyst, and trader** services (it decrypts each user's stored exchange keys).
+
+## Risk Disclaimer
+
+> **NexTrade AI executes real trades with real funds.** Algorithmic trading — especially leveraged futures — carries substantial risk of loss. Paper-trading results do not reflect live performance (fees, slippage, spread, and latency all apply live). Nothing here is financial advice. Trade only what you can afford to lose, start on a small balance, and validate in paper mode first. The authors accept no liability for financial losses.
+
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
